@@ -7,6 +7,9 @@
 #include "freertos/FreeRTOSConfig.h"
 #include "freertos/task.h"
 
+
+
+
 void setup() {
     Serial.begin(9600);
 
@@ -26,6 +29,18 @@ void setup() {
 
     // Create control loop (Core 1)
     xTaskCreatePinnedToCore(control_loop_task, "control", 8192, NULL, 2, &control_task_handle, 1);
+
+
+    // Actuator queues
+    pump_queue      = xQueueCreate(10, sizeof(actuator_msg_t));
+    light_act_queue = xQueueCreate(10, sizeof(actuator_msg_t));
+    fan_queue       = xQueueCreate(10, sizeof(actuator_msg_t));
+
+    // Actuator tasks (Core 1)
+    xTaskCreatePinnedToCore(pump_task,          "pump", 4096, NULL, 1, &pump_task_handle, 1);
+    xTaskCreatePinnedToCore(light_actuator_task,"lightA",4096,NULL,1,&light_act_task_handle,1);
+    xTaskCreatePinnedToCore(fan_task,           "fan", 4096, NULL, 1, &fan_task_handle, 1);
+
 }
 
 void loop() {
