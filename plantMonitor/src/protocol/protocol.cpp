@@ -54,14 +54,58 @@ void command_task(void *pvParameters) {
     config_msg_t incoming;
 
     while (true) {
-        // Wait forever for a new config message
         if (xQueueReceive(config_queue, &incoming, portMAX_DELAY)) {
 
-            // Update the global config (should be volatile)
             memcpy((void*)&global_config, (void*)&incoming, sizeof(config_msg_t));
 
+            protocol_apply_schedule(incoming);
+            protocol_apply_threshold(incoming);
+
+            // Later:
+            // protocol_apply_mode(incoming);
+            // protocol_apply_quantity(incoming);
         }
     }
 }
+
+
+static int last_schedule_hours = -1;   // only reconfigure when changed
+static esp_timer_handle_t schedule_timer;
+
+void protocol_apply_schedule(const config_msg_t &cfg) {
+
+    // Only act if schedule changed
+    if (cfg.schedule_hours != last_schedule_hours) {
+
+        // Stop old timer
+        esp_timer_stop(schedule_timer);
+
+        // Start new timer if > 0
+        if (cfg.schedule_hours > 0) {
+            uint64_t interval_us =
+                (uint64_t)cfg.schedule_hours * 3600ULL * 1000000ULL;
+
+            esp_timer_start_periodic(schedule_timer, interval_us);
+        }
+
+        last_schedule_hours = cfg.schedule_hours;
+    }
+}
+
+static int last_threshold_pct = -1;
+
+void protocol_apply_threshold(const config_msg_t &cfg) {
+
+    if (cfg.threshold_pct != last_threshold_pct) {
+
+        // Update internal threshold state
+        last_threshold_pct = cfg.threshold_pct;
+
+        // (Optional) log or notify control loop
+        // (Optional) reset hysteresis state
+    }
+}
+
+
 
 

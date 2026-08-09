@@ -34,3 +34,11 @@ void command_task(void *pvParameters);
 
 // Low-level byte read helper
 uint8_t read_cmd_byte_from_hw();
+
+
+// handles setting up a new periodic watering schedule 
+void protocol_apply_schedule(const config_msg_t &cfg);
+
+void protocol_apply_threshold(const config_msg_t &cfg);
+
+
