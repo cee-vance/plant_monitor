@@ -6,10 +6,15 @@
 
 
 #include "src/globals.h"
+#include "src/actuators.h"
 
 
 void setup() {
     Serial.begin(9600);
+
+    // start the acutators
+    actuator_init();
+    vent_init();
 
         // ======================================================
     // Create config queue (one struct per update)

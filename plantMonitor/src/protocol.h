@@ -20,7 +20,12 @@ struct config_msg_t {
     control_mode_t mode;
     uint8_t        threshold_pct;
     uint32_t       schedule_hours;
+
+    // Vent control (temperature-based)
+    uint8_t        temp_min;          // start opening
+    uint8_t        temp_max;          // fully open
 };
+
 
 // ======================================================
 //  Protocol API

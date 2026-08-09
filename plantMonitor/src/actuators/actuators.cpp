@@ -1,4 +1,6 @@
 #include "src/actuators.h"
+#include <driver/ledc.h>
+
 
 // ===============================
 //  Pin Definitions
@@ -38,6 +40,19 @@ void actuator_init() {
 
     actuator_position_steps = 0;
 }
+
+// ------------------------------------------------------
+// Servo (Vent) Initialization
+// ------------------------------------------------------
+void vent_init() {
+    // 50 Hz PWM for standard hobby servos
+    const int freq = 50;
+    const int resolution_bits = 16;   // gives 0–65535 duty range
+
+    // ledcSetup(SERVO_CHANNEL, freq, resolution_bits);
+    ledcAttach(SERVO_PIN, freq, resolution_bits);
+}
+
 
 // ===============================
 //  Low-level stepping
@@ -105,9 +120,60 @@ void pump_draw_ml(float ml) {
 //  Vent control
 // ===============================
 void vent_open() {
-    stepper_go_to(ACTUATOR_MAX_POS);
+    vent_set_angle(VENT_OPEN_ANGLE);
 }
 
 void vent_close() {
-    stepper_go_to(ACTUATOR_MIN_POS);
+    vent_set_angle(VENT_CLOSE_ANGLE);
 }
+
+
+
+static uint32_t angle_to_duty(int angle) {
+    // Clamp angle
+    if (angle < 0) angle = 0;
+    if (angle > 180) angle = 180;
+
+    // Convert angle to pulse width (1000–2000 µs)
+    int pulse_us = 1000 + (angle * 1000) / 180;
+
+    // Convert pulse width to duty cycle
+    // 50 Hz → 20,000 µs period
+    uint32_t duty = (pulse_us * 65535) / 20000;
+
+    return duty;
+}
+
+
+void vent_set_angle(int angle) {
+    uint32_t duty = angle_to_duty(angle);
+    ledcWrite(SERVO_CHANNEL, duty);
+}
+
+// ------------------------------------------------------
+// Compute vent angle from current temperature + config
+// ------------------------------------------------------
+int compute_vent_angle(float current_temp, const config_msg_t &cfg)
+{
+    // Clamp temperature to configured range
+    float t = current_temp;
+    if (t < cfg.temp_min) t = cfg.temp_min;
+    if (t > cfg.temp_max) t = cfg.temp_max;
+
+    // Map temperature → servo angle
+    // temp_min  → VENT_CLOSE_ANGLE
+    // temp_max  → VENT_OPEN_ANGLE
+    float ratio = (t - cfg.temp_min) / (float)(cfg.temp_max - cfg.temp_min);
+
+    int angle = (int)(VENT_CLOSE_ANGLE +
+                      ratio * (VENT_OPEN_ANGLE - VENT_CLOSE_ANGLE));
+
+    // Clamp final angle
+    if (angle < VENT_CLOSE_ANGLE) angle = VENT_CLOSE_ANGLE;
+    if (angle > VENT_OPEN_ANGLE)  angle = VENT_OPEN_ANGLE;
+
+    return angle;
+}
+
+
+
