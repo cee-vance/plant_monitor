@@ -40,18 +40,20 @@ void logging_print_data(const plant_data_t &msg) {
     Serial.println(msg.vent_open);
 }
 
-void logging_send_data() {
+void logging_task(void *pvParameters)
+{
     plant_data_t pkt;
 
-    // Drain all available packets
-    while (xQueueReceive(plant_data_queue, &pkt, 0)) {
+    while (true) {
+        // Block until a packet arrives
+        if (xQueueReceive(plant_data_queue, &pkt, portMAX_DELAY)) {
+            logging_print_data(pkt);
+        }
 
-        // For now: print
-        logging_print_data(pkt);
-
-        // Later: send over UART/BLE/WiFi
-        // send_plant_data_binary(pkt);
+        // Optional: throttle logging
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
+
 
 

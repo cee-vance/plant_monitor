@@ -39,6 +39,9 @@ extern QueueHandle_t plant_data_queue;
 // Push a plant_data_t packet into the queue
 void logging_send_data(const plant_data_t &msg);
 
+// task for sending plant data
+void logging_task(void *pvParameters);
+
 // Print formatted plant data (serial, BLE, etc.)
 void logging_print_data(const plant_data_t &msg);
 

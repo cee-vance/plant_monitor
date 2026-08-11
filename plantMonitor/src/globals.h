@@ -12,3 +12,9 @@ extern QueueHandle_t config_queue;
 // Task handle for command_task
 extern TaskHandle_t command_task_handle;
 
+// Sensors task & queues
+extern QueueHandle_t plant_data_queue;
+extern TaskHandle_t logging_task_handle;
+
+extern TaskHandle_t read_sensors_handle;
+

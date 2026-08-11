@@ -54,3 +54,22 @@ plant_data_t build_plant_packet(
     const SensorData &raw,
     const DerivedMetrics &derived
 );
+
+
+// Sensor Processing Forward declarations
+
+float compute_heat_index(float temp_c, float humidity_pct);
+float compute_dew_point(float temp_c, float humidity_pct);
+
+void update_photoperiod(float light_lux, uint32_t tick_ms);
+float get_photoperiod_hours(void);
+
+float compute_drying_rate(float moist_pct);
+
+float compute_growth_rate(float height_cm, uint32_t now_ms);
+
+float compute_noise_level(float rms);
+float compute_disturbance_level(float peak, float rms);
+
+DerivedMetrics compute_plant_metrics(const SensorData &sd, uint32_t now_ms);
+

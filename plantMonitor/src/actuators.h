@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "src/protocol.h"
+#include "src/logging.h"
 
 // ======================================================
 //  Actuator Position Tracking
