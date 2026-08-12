@@ -49,15 +49,18 @@ struct plant_data_t {
 // ======================================================
 
 typedef enum {
-    DISP_TOPIC_NONE = 0,
-    DISP_TOPIC_TEMP,
-    DISP_TOPIC_MOIST,
-    DISP_TOPIC_SOUND,
-    DISP_TOPIC_LIGHT,
-    DISP_TOPIC_HEIGHT,
-    DISP_TOPIC_PUMP,
-    DISP_TOPIC_VENT
+    DISP_TOPIC_TEMP   = SCREEN_TEMP,    // 0
+    DISP_TOPIC_MOIST  = SCREEN_MOIST,   // 1
+    DISP_TOPIC_HUMID  = SCREEN_HUMID,   // 2
+    DISP_TOPIC_LIGHT  = SCREEN_LIGHT,   // 3
+    DISP_TOPIC_SOUND  = SCREEN_SOUND,   // 4
+    DISP_TOPIC_HEIGHT = SCREEN_HEIGHT,  // 5
+    DISP_TOPIC_PUMP   = SCREEN_PUMP,    // 6
+    DISP_TOPIC_VENT   = SCREEN_VENT     // 7
 } display_topic_t;
+
+
+
 
 // Queue for outgoing plant data
 extern QueueHandle_t plant_data_queue;

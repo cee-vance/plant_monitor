@@ -71,6 +71,9 @@ void logging_task(void *pvParameters)
             if (hasRelevant) {
                 // Notify display_now_task
                 xTaskNotifyGive(displayNowTaskHandle);
+            } else {
+                int dummy;
+                  while (xQueueReceive(displayNowQueue, &dummy, 0)) {}
             }
 
             // Normal logging
@@ -192,8 +195,9 @@ bool relevance_check(const plant_data_t &d,
     if (cfg.mode == MODE_THRESHOLD &&
         d.moisture_pct < cfg.threshold_pct)
     {
-        topic = DISP_TOPIC_MOIST;
-        xQueueSend(displayNowQueue, &topic, 0);
+        display_topic_t topic2;
+        topic2 = DISP_TOPIC_MOIST;
+        xQueueSend(displayNowQueue, &topic2, 0);
         queued = true;
     }
 
@@ -205,27 +209,26 @@ void display_now_task(void *pv) {
 
     for (;;) {
 
-        // Wait for logging_task to notify us
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        // Suspend regular display
         vTaskSuspend(regularDisplayTaskHandle);
 
-        // Drain all queued indexes
+        xQueueReceive(displayNowQueue, &idx, portMAX_DELAY);
+
+        plant_data_t d;
+        xQueuePeek(plant_data_queue, &d, 0);
+        display_screen(idx, d);
+        vTaskDelay(pdMS_TO_TICKS(1500));
+
         while (xQueueReceive(displayNowQueue, &idx, 0)) {
-
-            plant_data_t d;
             xQueuePeek(plant_data_queue, &d, 0);
-
             display_screen(idx, d);
-
             vTaskDelay(pdMS_TO_TICKS(1500));
         }
 
-        // Resume normal display
         vTaskResume(regularDisplayTaskHandle);
     }
 }
+
 
 int topic_to_index(display_topic_t t) {
     switch (t) {

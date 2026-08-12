@@ -324,12 +324,15 @@ bool read_moisture_sensor(float &moist_pct) {
         return false;
     }
 
-    const float dry_raw = 3500.0f;
-    const float wet_raw = 1200.0f;
+    // These are your current calibration values from the test sketch.
+    const float dry_raw = 3500.0f;   // sensor dry (high ADC)
+    const float wet_raw = 1200.0f;   // sensor wet (low ADC)
 
-    float pct = (raw - dry_raw) / (wet_raw - dry_raw);
+    // Correct mapping: dry = 100%, wet = 0%
+    float pct = (raw - wet_raw) / (dry_raw - wet_raw);
     pct = constrain(pct, 0.0f, 1.0f);
 
     moist_pct = pct * 100.0f;
     return true;
 }
+

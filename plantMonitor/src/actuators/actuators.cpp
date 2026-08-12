@@ -71,6 +71,10 @@ void vent_init() {
 
     // Move to closed position
     vent_close();
+    delay(1000);
+    vent_open();
+    delay(1000);
+    vent_close();
 }
 
 
