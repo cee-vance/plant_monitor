@@ -140,7 +140,7 @@ void display_screen(int idx, const plant_data_t &d) {
             lcd.setCursor(0,0);
             lcd.print("Humidity:");
             lcd.setCursor(0,1);
-            lcd.print(d.humidity);
+            lcd.print(d.humidity_pct);
             break;
 
         case SCREEN_HEIGHT:
