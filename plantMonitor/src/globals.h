@@ -2,6 +2,19 @@
 #include "src/protocol.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include <LiquidCrystal_I2C.h>
+
+// data indexes for display
+#define SCREEN_TEMP    0
+#define SCREEN_MOIST   1
+#define SCREEN_HUMID   2
+#define SCREEN_LIGHT   3
+#define SCREEN_SOUND   4
+#define SCREEN_HEIGHT  5
+#define SCREEN_PUMP    6
+#define SCREEN_VENT    7
+
+#define NUM_SCREENS    8
 
 
 // Global config (shared across tasks)
@@ -24,7 +37,23 @@ extern QueueHandle_t vent_queue;
 
 extern TaskHandle_t control_loop_handle;
 
-static const TickType_t GLOBAL_TICK = pdMS_TO_TICKS(1000);   // 1000ms
+#pragma once
+
+extern const TickType_t GLOBAL_TICK;
+
+
+// --- Display Task Handles ---
+extern TaskHandle_t regularDisplayTaskHandle;
+extern TaskHandle_t displayNowTaskHandle;
+
+// --- Queue for display topics (semantic events) ---
+extern QueueHandle_t displayNowQueue;
+
+
+
+
+extern LiquidCrystal_I2C lcd;
+
 
 
 

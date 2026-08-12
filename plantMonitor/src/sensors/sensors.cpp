@@ -6,45 +6,36 @@
 Adafruit_AM2320 am2320;
 
 void sensors_init() {
-    // Initialize I2C on GPIO 4 (SDA) and GPIO 5 (SCL)
     delay(200);
 
-  // Your chosen pins:
-  // SDA = GPIO 4
-  // SCL = GPIO 5
-  Wire.begin(4, 5);
+    Wire.begin(SDA, SCLK);
+    delay(10);
+    am2320.begin();
 
-  delay(10);          // wake-up delay
-  am2320.begin();
+    Serial.println("AM2320 starting...");
 
-  Serial.println("AM2320 starting...");
-
-      // --- HC-SR04 ultrasonic setup ---
+    // Ultrasonic
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
-
-    // Ensure TRIG starts low
     digitalWrite(TRIG_PIN, LOW);
-
     Serial.println("Ultrasonic sensor initialized.");
 
-    // light
-     pinMode(LIGHT_PIN, INPUT);
-     Serial.println("Light sensor initialized.");
+    // Light
+    pinMode(LIGHT_PIN, INPUT);
+    Serial.println("Light sensor initialized.");
 
-     // sound 
-     pinMode(SOUND_PIN, INPUT);
+    // Sound
+    pinMode(SOUND_PIN, INPUT);
     Serial.println("Sound sensor initialized");
 
-    // MOISTURE 
-        pinMode(MOISTURE_PIN, INPUT);
-    Serial.println("=== Moisture Sensor Debug ===");
-
+    // Moisture
+    pinMode(MOISTURE_PIN, INPUT);
+    Serial.println("Moisture sensor initialized.");
 }
 
 void read_sensors_task(void *pvParameters)
 {
-    const TickType_t tick = pdMS_TO_TICKS(100); // 100ms sensor period
+    const TickType_t tick = pdMS_TO_TICKS(100);
 
     while (true)
     {
@@ -54,12 +45,10 @@ void read_sensors_task(void *pvParameters)
         DerivedMetrics derived = compute_plant_metrics(raw, now_ms);
 
         print_derived_metrics(derived);
+
         plant_data_t pkt = build_plant_packet(raw, derived);
 
         xQueueSend(plant_data_queue, &pkt, 0);
-
-        float temp = raw.temp;
-        xQueueOverwrite(vent_queue, &temp);
 
         vTaskDelay(GLOBAL_TICK);
     }
@@ -73,18 +62,36 @@ plant_data_t build_plant_packet(
 
     pkt.timestamp_ms = millis();
 
-    pkt.moisture_raw = (uint16_t)(raw.moist_pct * 10);
+    // Moisture
     pkt.moisture_pct = raw.moist_pct;
+    pkt.drying_rate_pct_per_hr = derived.drying_rate;
+    pkt.moist_ok = raw.moist_ok;
+
+    // Temperature
     pkt.temperature_c = raw.temp;
-    pkt.light_raw     = (uint16_t)raw.light_lux;
-    pkt.distance_mm   = (uint16_t)(raw.height_cm * 10);
+    pkt.temp_ok = raw.temp_ok;
 
-    pkt.mode           = global_config.mode;
-    pkt.threshold_pct  = global_config.threshold_pct;
-    pkt.schedule_hours = global_config.schedule_hours;
+    // Humidity
+    pkt.humidity_pct = raw.humidity;
+    pkt.humid_ok = raw.temp_ok;   // AM2320 gives both; temp_ok covers humidity validity
 
-    pkt.pump_active = false;
-    pkt.vent_open   = false;
+    // Light
+    pkt.light_level = raw.light_lux;
+    pkt.light_ok = raw.light_ok;
+
+    // Height
+    pkt.height_cm = raw.height_cm;
+    pkt.growth_rate_cm_per_day = derived.growth_rate;
+    pkt.height_ok = raw.height_ok;
+
+    // Sound
+    pkt.noise_level = derived.noise_level;
+    pkt.disturbance_level = derived.disturbance_level;
+    pkt.sound_ok = raw.sound_ok;
+
+    // Actuator status (placeholder until control loop sets them)
+    pkt.pump_ok = true;
+    pkt.vent_ok = true;
 
     return pkt;
 }
@@ -96,16 +103,12 @@ SensorData read_raw_sensors() {
     d.temp     = am2320.readTemperature();
     d.humidity = am2320.readHumidity();
     d.temp_ok  = !isnan(d.temp) && !isnan(d.humidity);
+
     Serial.printf("temp: %.2f hum: %.2f\n", d.temp, d.humidity);
-    // --- Placeholder values for other sensors ---
 
-    
-
-
-    // height stuff
+    // --- Height (ultrasonic) ---
     float h = read_ultrasonic_cm();
-
-    if (isnan(h) || h <= 0 || h > 400) {   // sanity range: 0–400 cm
+    if (isnan(h) || h <= 0 || h > 400) {
         d.height_cm = 0.0f;
         d.height_ok = false;
     } else {
@@ -113,7 +116,7 @@ SensorData read_raw_sensors() {
         d.height_ok = true;
     }
 
-    // light stuff
+    // --- Light ---
     float light_val;
     if (read_light_sensor(light_val)) {
         d.light_lux = light_val;
@@ -123,30 +126,27 @@ SensorData read_raw_sensors() {
         d.light_ok  = false;
     }
 
-    // sound stuff
+    // --- Sound ---
     float s;
     if (read_sound_sensor(s)) {
         d.sound_peak = s;
+        d.sound_rms  = s;   // placeholder until RMS implemented
         d.sound_ok   = true;
     } else {
         d.sound_peak = 0.0f;
+        d.sound_rms  = 0.0f;
         d.sound_ok   = false;
     }
 
-
-    // moisture
-       float w;
+    // --- Moisture ---
+    float w;
     if (read_moisture_sensor(w)) {
         d.moist_pct = w;
-        d.moist_ok   = true;
+        d.moist_ok  = true;
     } else {
         d.moist_pct = 0.0f;
-        d.sound_ok   = false;
+        d.moist_ok  = false;
     }
-  
-   
-    d.moist_ok  = true;
-    
 
     return d;
 }
@@ -187,11 +187,15 @@ void update_photoperiod(float light_lux, uint32_t tick_ms) {
     }
 }
 
+float get_photoperiod_hours(void) {
+    return photoperiod_hours;
+}
+
 float last_moist_pct = 0.0f;
 uint32_t last_moist_ts = 0;
 
 float compute_drying_rate(float moist_pct, uint32_t now_ms) {
-    float dt = (now_ms - last_moist_ts) / 1000.0f;
+    float dt = (now_ms - last_moist_ts) / 3600000.0f; // hours
     float rate = 0.0f;
 
     if (dt > 0.0f) {
@@ -208,7 +212,7 @@ float last_height_cm = 0.0f;
 uint32_t last_height_ts = 0;
 
 float compute_growth_rate(float height_cm, uint32_t now_ms) {
-    float dt = (now_ms - last_height_ts) / 3600000.0f;
+    float dt = (now_ms - last_height_ts) / 3600000.0f; // hours
     float rate = 0.0f;
 
     if (dt > 0.0f) {
@@ -248,45 +252,33 @@ DerivedMetrics compute_plant_metrics(const SensorData &sd, uint32_t now_ms) {
     return pm;
 }
 
-
 float read_ultrasonic_cm() {
-    // Trigger pulse
     digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
     digitalWrite(TRIG_PIN, HIGH);
     delayMicroseconds(10);
     digitalWrite(TRIG_PIN, LOW);
 
-    // Echo pulse
-    long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout
+    long duration = pulseIn(ECHO_PIN, HIGH, 30000);
 
     if (duration == 0) {
-        return NAN;  // no echo
+        return NAN;
     }
 
-    return duration * 0.034f / 2.0f;  // convert to cm
+    return duration * 0.034f / 2.0f;
 }
 
-
-
-// light 
-// Read light level from LDR voltage divider
 bool read_light_sensor(float &lux_out) {
     int raw = analogRead(LIGHT_PIN);
 
-    // sanity check for ADC range
     if (raw < 0 || raw > 4095) {
         return false;
     }
 
-    // For now, just return raw ADC value.
-    // You can convert to % or lux later if needed.
     lux_out = (float)raw;
     return true;
 }
 
-
-// sound
 bool read_sound_sensor(float &sound_out) {
     int raw = analogRead(SOUND_PIN);
 
@@ -297,7 +289,6 @@ bool read_sound_sensor(float &sound_out) {
     sound_out = (float)raw;
     return true;
 }
-
 
 void print_derived_metrics(const DerivedMetrics &dm) {
     Serial.println("=== Derived Metrics ===");
@@ -326,26 +317,19 @@ void print_derived_metrics(const DerivedMetrics &dm) {
     Serial.println("=======================");
 }
 
-// moisture
 bool read_moisture_sensor(float &moist_pct) {
     int raw = analogRead(MOISTURE_PIN);
 
-    // Basic sanity check
     if (raw < 0 || raw > 4095) {
         return false;
     }
 
-    // Your sensor: dry = high raw, wet = low raw
-    const float dry_raw = 3500.0f;   // tune later
-    const float wet_raw = 1200.0f;   // tune later
+    const float dry_raw = 3500.0f;
+    const float wet_raw = 1200.0f;
 
-    // Corrected mapping: 0% = dry, 100% = wet
     float pct = (raw - dry_raw) / (wet_raw - dry_raw);
     pct = constrain(pct, 0.0f, 1.0f);
 
     moist_pct = pct * 100.0f;
     return true;
 }
-
-
-

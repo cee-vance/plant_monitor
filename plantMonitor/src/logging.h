@@ -2,31 +2,62 @@
 #include <Arduino.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
-#include "protocol.h"   // for control_mode_t
+#include "src/protocol.h"   // for control_mode_t
+#include "src/globals.h"
 
 // ======================================================
-//  Outgoing Plant Data Packet
+//  Unified Plant Data Packet (FINAL SENSOR-CENTRIC MODEL)
 // ======================================================
 
 struct plant_data_t {
     uint32_t timestamp_ms;
 
-    // raw sensor values
-    uint16_t moisture_raw;
-    float    moisture_pct;
-    float    temperature_c;
-    uint16_t light_raw;
-    uint16_t distance_mm;
+    // Moisture
+    float moisture_pct;
+    float drying_rate_pct_per_hr;
+    bool  moist_ok;
 
-    // config values (current system state)
-    control_mode_t mode;
-    uint8_t        threshold_pct;
-    uint32_t       schedule_hours;
+    // Temperature
+    float temperature_c;
+    bool  temp_ok;
 
-    // actuator states
-    bool pump_active;
-    bool vent_open;
+    // Humidity
+    float humidity_pct;
+    bool  humid_ok;
+
+    // Light
+    float light_level;
+    bool  light_ok;
+
+    // Height
+    float height_cm;
+    float growth_rate_cm_per_day;
+    bool  height_ok;
+
+    // Sound
+    float noise_level;
+    float disturbance_level;
+    bool  sound_ok;
+
+    // Actuator status (fault detection only)
+    bool pump_ok;
+    bool vent_ok;
 };
+
+// ======================================================
+//  Display Topics (unchanged)
+// ======================================================
+
+typedef enum {
+    DISP_TOPIC_NONE = 0,
+    DISP_TOPIC_TEMP,
+    DISP_TOPIC_MOIST,
+    DISP_TOPIC_SOUND,
+    DISP_TOPIC_LIGHT,
+    DISP_TOPIC_HEIGHT,
+    DISP_TOPIC_PUMP,
+    DISP_TOPIC_VENT
+} display_topic_t;
 
 // Queue for outgoing plant data
 extern QueueHandle_t plant_data_queue;
@@ -35,13 +66,28 @@ extern QueueHandle_t plant_data_queue;
 //  Logging API (implemented in logging.cpp)
 // ======================================================
 
-
 // Push a plant_data_t packet into the queue
 void logging_send_data(const plant_data_t &msg);
 
-// task for sending plant data
+// Task for sending plant data
 void logging_task(void *pvParameters);
 
 // Print formatted plant data (serial, BLE, etc.)
 void logging_print_data(const plant_data_t &msg);
 
+// ======================================================
+//  Display Plant Data tasks & helpers
+// ======================================================
+
+void regular_display_task(void *pv);
+
+void display_now_task(void *pv);
+
+void display_screen(int idx, const plant_data_t &d);
+
+bool relevance_check(const plant_data_t &d,
+                     const config_msg_t &cfg);
+
+int topic_to_index(display_topic_t t);
+
+void lcd_init() ;

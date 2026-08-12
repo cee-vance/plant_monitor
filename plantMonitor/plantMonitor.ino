@@ -21,6 +21,8 @@ void setup() {
 
     sensors_init();
 
+    lcd_init();
+
     // ======================================================
     // Create config queue (one struct per update)
     // ======================================================
@@ -28,6 +30,13 @@ void setup() {
         5,                      // queue depth
         sizeof(config_msg_t)    // element size
     );
+
+      displayNowQueue = xQueueCreate(8, sizeof(display_topic_t));
+
+    // Create queue for plant_data_t packets
+    plant_data_queue = xQueueCreate(1, sizeof(plant_data_t));
+
+    vent_queue = xQueueCreate(1, sizeof(float));  // raw temp
 
     // ======================================================
     // Attach UART RX interrupt
@@ -52,10 +61,7 @@ void setup() {
         1
     );
 
-     // Create queue for plant_data_t packets
-    plant_data_queue = xQueueCreate(1, sizeof(plant_data_t));
 
-    vent_queue = xQueueCreate(1, sizeof(float));  // raw temp
 
 
     // Create logging task
@@ -89,6 +95,22 @@ void setup() {
     &control_loop_handle,     // ← store handle here
     1                         // run on core 1 (your actuator/sensor side)
     );
+
+  
+
+    xTaskCreate(regular_display_task,
+                "disp_reg",
+                4096,
+                NULL,
+                1,
+                &regularDisplayTaskHandle);
+
+    xTaskCreate(display_now_task,
+                "disp_now",
+                4096,
+                NULL,
+                2,
+                &displayNowTaskHandle);
 
 
 
