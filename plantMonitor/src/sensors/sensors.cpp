@@ -27,6 +27,10 @@ void sensors_init() {
     digitalWrite(TRIG_PIN, LOW);
 
     Serial.println("Ultrasonic sensor initialized.");
+
+    // light
+     pinMode(LIGHT_PIN, INPUT);
+     Serial.println("Light sensor initialized.");
 }
 
 void read_sensors_task(void *pvParameters)
@@ -84,7 +88,7 @@ SensorData read_raw_sensors() {
     Serial.printf("temp: %.2f hum: %.2f\n", d.temp, d.humidity);
     // --- Placeholder values for other sensors ---
 
-    d.light_lux   = 1200.0f;
+    
     d.sound_rms   = 0.02f;
     d.sound_peak  = 0.10f;
     d.moist_pct   = 42.0f;
@@ -100,7 +104,18 @@ SensorData read_raw_sensors() {
         d.height_ok = true;
     }
 
-    d.light_ok  = true;
+    // light stuff
+    float light_val;
+    if (read_light_sensor(light_val)) {
+        d.light_lux = light_val;
+        d.light_ok  = true;
+    } else {
+        d.light_lux = 0.0f;
+        d.light_ok  = false;
+    }
+
+
+  
     d.sound_ok  = true;
     d.moist_ok  = true;
     
@@ -223,3 +238,22 @@ float read_ultrasonic_cm() {
 
     return duration * 0.034f / 2.0f;  // convert to cm
 }
+
+
+
+// light 
+// Read light level from LDR voltage divider
+bool read_light_sensor(float &lux_out) {
+    int raw = analogRead(LIGHT_PIN);
+
+    // sanity check for ADC range
+    if (raw < 0 || raw > 4095) {
+        return false;
+    }
+
+    // For now, just return raw ADC value.
+    // You can convert to % or lux later if needed.
+    lux_out = (float)raw;
+    return true;
+}
+

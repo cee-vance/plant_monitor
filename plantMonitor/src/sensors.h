@@ -81,3 +81,10 @@ void sensors_init();
 #define ECHO_PIN 7
 
 float read_ultrasonic_cm() ;
+
+// ======================================================
+//  Photoresistor
+// ======================================================
+#define LIGHT_PIN 1
+
+bool read_light_sensor(float &lux_out);
