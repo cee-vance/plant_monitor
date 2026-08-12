@@ -5,10 +5,10 @@
 // ===============================
 //  Pin Definitions
 // ===============================
-#define IN1 10
-#define IN2 11
-#define IN3 12
-#define IN4 13
+#define IN1 18
+#define IN2 19
+#define IN3 20
+#define IN4 21
 
 // ===============================
 //  Position Tracking
@@ -44,14 +44,36 @@ void actuator_init() {
 // ------------------------------------------------------
 // Servo (Vent) Initialization
 // ------------------------------------------------------
-void vent_init() {
-    // 50 Hz PWM for standard hobby servos
-    const int freq = 50;
-    const int resolution_bits = 16;   // gives 0–65535 duty range
 
-    // ledcSetup(SERVO_CHANNEL, freq, resolution_bits);
-    ledcAttach(SERVO_PIN, freq, resolution_bits);
+
+
+// Calibrated pulse range for your servo (0–90°)
+static const int MIN_US = 1000;   // 0°
+static const int MID_US = 1500;   // 90°
+
+// static inline int angleToUs(int angle) {
+//     angle = constrain(angle, 0, 90);
+//     return map(angle, 0, 90, MIN_US, MID_US);
+// }
+
+void vent_init() {
+    // Route MCPWM0A output to the pin
+    mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, SERVO_PIN);
+
+    // Configure MCPWM timer
+    mcpwm_config_t cfg;
+    cfg.frequency = 50;
+    cfg.cmpr_a = 0;
+    cfg.counter_mode = MCPWM_UP_COUNTER;
+    cfg.duty_mode = MCPWM_DUTY_MODE_0;
+
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &cfg);
+
+    // Move to closed position
+    vent_close();
 }
+
+
 
 
 // ===============================
@@ -120,60 +142,101 @@ void pump_draw_ml(float ml) {
 //  Vent control
 // ===============================
 void vent_open() {
-    vent_set_angle(VENT_OPEN_ANGLE);
+     mcpwm_set_duty_in_us(
+            MCPWM_UNIT_0,
+            MCPWM_TIMER_0,
+            MCPWM_OPR_A,
+            1500
+        );
+        Serial.println("Vent: OPEN");
 }
 
 void vent_close() {
-    vent_set_angle(VENT_CLOSE_ANGLE);
+         // Too cool → CLOSE vents
+        mcpwm_set_duty_in_us(
+            MCPWM_UNIT_0,
+            MCPWM_TIMER_0,
+            MCPWM_OPR_A,
+            500
+        );
+        Serial.println("Vent: CLOSE");
 }
 
 
 
-static uint32_t angle_to_duty(int angle) {
-    // Clamp angle
-    if (angle < 0) angle = 0;
-    if (angle > 180) angle = 180;
+// // static uint32_t angle_to_duty(int angle) {
+// //     // Clamp angle
+// //     if (angle < 0) angle = 0;
+// //     if (angle > 180) angle = 180;
 
-    // Convert angle to pulse width (1000–2000 µs)
-    int pulse_us = 1000 + (angle * 1000) / 180;
+// //     // Convert angle to pulse width (1000–2000 µs)
+// //     int pulse_us = 1000 + (angle * 1000) / 180;
 
-    // Convert pulse width to duty cycle
-    // 50 Hz → 20,000 µs period
-    uint32_t duty = (pulse_us * 65535) / 20000;
+// //     // Convert pulse width to duty cycle
+// //     // 50 Hz → 20,000 µs period
+// //     uint32_t duty = (pulse_us * 65535) / 20000;
 
-    return duty;
+// //     return duty;
+// // }
+
+
+// // void vent_set_angle(int angle) {
+// //     uint32_t duty = angle_to_duty(angle);
+// //     ledcWrite(SERVO_CHANNEL, duty);
+// // }
+
+// // ------------------------------------------------------
+// // Compute vent angle from current temperature + config
+// // ------------------------------------------------------
+// int compute_vent_angle(float current_temp, const config_msg_t &cfg)
+// {
+//     // Clamp temperature to configured range
+//     float t = current_temp;
+//     if (t < cfg.temp_min) t = cfg.temp_min;
+//     if (t > cfg.temp_max) t = cfg.temp_max;
+
+//     // Map temperature → servo angle
+//     // temp_min  → VENT_CLOSE_ANGLE
+//     // temp_max  → VENT_OPEN_ANGLE
+//     float ratio = (t - cfg.temp_min) / (float)(cfg.temp_max - cfg.temp_min);
+
+//     int angle = (int)(VENT_CLOSE_ANGLE +
+//                       ratio * (VENT_OPEN_ANGLE - VENT_CLOSE_ANGLE));
+
+//     // Clamp final angle
+//     if (angle < VENT_CLOSE_ANGLE) angle = VENT_CLOSE_ANGLE;
+//     if (angle > VENT_OPEN_ANGLE)  angle = VENT_OPEN_ANGLE;
+
+//     return angle;
+// }
+
+
+
+
+
+void update_vent_position(float current_temp, const config_msg_t &cfg) {
+
+    // Ignore NaN readings completely
+    if (isnan(current_temp)) {
+        Serial.println("Vent: IGNORE (NaN)");
+        return;
+    }
+
+    // Too warm → OPEN vents
+    if (current_temp > cfg.temp_max) {
+        vent_open();
+        Serial.println("Vent: OPEN");
+        return;
+    }
+
+    // Too cool → CLOSE vents
+    if (current_temp < cfg.temp_min) {
+        vent_close();
+        Serial.println("Vent: CLOSE");
+        return;
+    }
+
+    // In range → do nothing
+    Serial.println("Vent: HOLD (in range)");
 }
-
-
-void vent_set_angle(int angle) {
-    uint32_t duty = angle_to_duty(angle);
-    ledcWrite(SERVO_CHANNEL, duty);
-}
-
-// ------------------------------------------------------
-// Compute vent angle from current temperature + config
-// ------------------------------------------------------
-int compute_vent_angle(float current_temp, const config_msg_t &cfg)
-{
-    // Clamp temperature to configured range
-    float t = current_temp;
-    if (t < cfg.temp_min) t = cfg.temp_min;
-    if (t > cfg.temp_max) t = cfg.temp_max;
-
-    // Map temperature → servo angle
-    // temp_min  → VENT_CLOSE_ANGLE
-    // temp_max  → VENT_OPEN_ANGLE
-    float ratio = (t - cfg.temp_min) / (float)(cfg.temp_max - cfg.temp_min);
-
-    int angle = (int)(VENT_CLOSE_ANGLE +
-                      ratio * (VENT_OPEN_ANGLE - VENT_CLOSE_ANGLE));
-
-    // Clamp final angle
-    if (angle < VENT_CLOSE_ANGLE) angle = VENT_CLOSE_ANGLE;
-    if (angle > VENT_OPEN_ANGLE)  angle = VENT_OPEN_ANGLE;
-
-    return angle;
-}
-
-
 

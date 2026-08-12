@@ -47,3 +47,4 @@ void protocol_apply_schedule(const config_msg_t &cfg);
 void protocol_apply_threshold(const config_msg_t &cfg);
 
 
+

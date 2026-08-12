@@ -64,6 +64,8 @@ void command_task(void *pvParameters) {
             // Later:
             // protocol_apply_mode(incoming);
             // protocol_apply_quantity(incoming);
+
+                 vTaskDelay(GLOBAL_TICK);
         }
     }
 }

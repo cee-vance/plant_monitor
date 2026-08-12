@@ -51,7 +51,7 @@ void logging_task(void *pvParameters)
         }
 
         // Optional: throttle logging
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(GLOBAL_TICK);
     }
 }
 

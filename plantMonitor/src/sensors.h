@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 #include "src/logging.h"
+#include <Wire.h>
+#include <Adafruit_AM2320.h>
 
 // ======================================================
 //  Sensor Task
@@ -40,23 +42,16 @@ struct DerivedMetrics {
 };
 
 // ======================================================
-//  Sensor Layer API (Declarations Only)
+//  Sensor Layer API
 // ======================================================
 
-// Reads raw sensors (implemented in sensors.cpp)
 SensorData read_raw_sensors();
-
-// Computes derived metrics (implemented in sensors.cpp)
 DerivedMetrics compute_metrics(const SensorData &raw);
 
-// Builds outbound plant_data_t packet (implemented in sensors.cpp)
 plant_data_t build_plant_packet(
     const SensorData &raw,
     const DerivedMetrics &derived
 );
-
-
-// Sensor Processing Forward declarations
 
 float compute_heat_index(float temp_c, float humidity_pct);
 float compute_dew_point(float temp_c, float humidity_pct);
@@ -64,8 +59,7 @@ float compute_dew_point(float temp_c, float humidity_pct);
 void update_photoperiod(float light_lux, uint32_t tick_ms);
 float get_photoperiod_hours(void);
 
-float compute_drying_rate(float moist_pct);
-
+float compute_drying_rate(float moist_pct, uint32_t now_ms);
 float compute_growth_rate(float height_cm, uint32_t now_ms);
 
 float compute_noise_level(float rms);
@@ -73,3 +67,17 @@ float compute_disturbance_level(float peak, float rms);
 
 DerivedMetrics compute_plant_metrics(const SensorData &sd, uint32_t now_ms);
 
+// ======================================================
+//  AM2320 Sensor Object
+// ======================================================
+extern Adafruit_AM2320 am2320;
+
+void sensors_init();
+
+// ======================================================
+//  HC-SR04
+// ======================================================
+#define TRIG_PIN 6
+#define ECHO_PIN 7
+
+float read_ultrasonic_cm() ;

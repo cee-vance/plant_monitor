@@ -1,7 +1,10 @@
 #pragma once
 #include <Arduino.h>
+#include "driver/mcpwm.h"
 #include "src/protocol.h"
 #include "src/logging.h"
+
+
 
 // ======================================================
 //  Actuator Position Tracking
@@ -34,9 +37,8 @@ void pump_draw_ml(float ml);
 // ======================================================
 
 // Servo vent control
-static const int SERVO_PIN = 4;          // pick your actual pin
-static const int SERVO_CHANNEL = 0;
-static const int SERVO_TIMER = 0;
+static const int SERVO_PIN = 11;          // pick your actual pin
+
 
 // Servo angles (tune these)
 static const int VENT_OPEN_ANGLE = 90;
@@ -44,10 +46,13 @@ static const int VENT_CLOSE_ANGLE = 0;
 
 // Servo API
 void vent_init();
-void vent_set_angle(int angle);
+// void vent_set_angle(int angle);
 void vent_open();
 void vent_close();
 
-// called in control loop 
-int compute_vent_angle(float current_temp, const config_msg_t &cfg);
+// // called in control loop 
+// int compute_vent_angle(float current_temp, const config_msg_t &cfg);
+
+void update_vent_position(float current_temp,const config_msg_t &cfg );
+
 
