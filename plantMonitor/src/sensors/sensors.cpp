@@ -31,6 +31,15 @@ void sensors_init() {
     // light
      pinMode(LIGHT_PIN, INPUT);
      Serial.println("Light sensor initialized.");
+
+     // sound 
+     pinMode(SOUND_PIN, INPUT);
+    Serial.println("Sound sensor initialized");
+
+    // MOISTURE 
+        pinMode(MOISTURE_PIN, INPUT);
+    Serial.println("=== Moisture Sensor Debug ===");
+
 }
 
 void read_sensors_task(void *pvParameters)
@@ -43,6 +52,8 @@ void read_sensors_task(void *pvParameters)
         uint32_t now_ms = millis();
 
         DerivedMetrics derived = compute_plant_metrics(raw, now_ms);
+
+        print_derived_metrics(derived);
         plant_data_t pkt = build_plant_packet(raw, derived);
 
         xQueueSend(plant_data_queue, &pkt, 0);
@@ -89,9 +100,7 @@ SensorData read_raw_sensors() {
     // --- Placeholder values for other sensors ---
 
     
-    d.sound_rms   = 0.02f;
-    d.sound_peak  = 0.10f;
-    d.moist_pct   = 42.0f;
+
 
     // height stuff
     float h = read_ultrasonic_cm();
@@ -114,9 +123,28 @@ SensorData read_raw_sensors() {
         d.light_ok  = false;
     }
 
+    // sound stuff
+    float s;
+    if (read_sound_sensor(s)) {
+        d.sound_peak = s;
+        d.sound_ok   = true;
+    } else {
+        d.sound_peak = 0.0f;
+        d.sound_ok   = false;
+    }
 
+
+    // moisture
+       float w;
+    if (read_moisture_sensor(w)) {
+        d.moist_pct = w;
+        d.moist_ok   = true;
+    } else {
+        d.moist_pct = 0.0f;
+        d.sound_ok   = false;
+    }
   
-    d.sound_ok  = true;
+   
     d.moist_ok  = true;
     
 
@@ -256,4 +284,68 @@ bool read_light_sensor(float &lux_out) {
     lux_out = (float)raw;
     return true;
 }
+
+
+// sound
+bool read_sound_sensor(float &sound_out) {
+    int raw = analogRead(SOUND_PIN);
+
+    if (raw < 0 || raw > 4095) {
+        return false;
+    }
+
+    sound_out = (float)raw;
+    return true;
+}
+
+
+void print_derived_metrics(const DerivedMetrics &dm) {
+    Serial.println("=== Derived Metrics ===");
+
+    Serial.print("Heat Index: ");
+    Serial.println(dm.heat_index);
+
+    Serial.print("Dew Point: ");
+    Serial.println(dm.dew_point);
+
+    Serial.print("Photoperiod (hrs): ");
+    Serial.println(dm.photoperiod);
+
+    Serial.print("Noise Level: ");
+    Serial.println(dm.noise_level);
+
+    Serial.print("Disturbance Level: ");
+    Serial.println(dm.disturbance_level);
+
+    Serial.print("Drying Rate (%/hr): ");
+    Serial.println(dm.drying_rate);
+
+    Serial.print("Growth Rate (cm/day): ");
+    Serial.println(dm.growth_rate);
+
+    Serial.println("=======================");
+}
+
+// moisture
+bool read_moisture_sensor(float &moist_pct) {
+    int raw = analogRead(MOISTURE_PIN);
+
+    // Basic sanity check
+    if (raw < 0 || raw > 4095) {
+        return false;
+    }
+
+    // Your sensor: dry = high raw, wet = low raw
+    const float dry_raw = 3500.0f;   // tune later
+    const float wet_raw = 1200.0f;   // tune later
+
+    // Corrected mapping: 0% = dry, 100% = wet
+    float pct = (raw - dry_raw) / (wet_raw - dry_raw);
+    pct = constrain(pct, 0.0f, 1.0f);
+
+    moist_pct = pct * 100.0f;
+    return true;
+}
+
+
 

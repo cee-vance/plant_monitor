@@ -65,6 +65,9 @@ float compute_growth_rate(float height_cm, uint32_t now_ms);
 float compute_noise_level(float rms);
 float compute_disturbance_level(float peak, float rms);
 
+// debugging 
+void print_derived_metrics(const DerivedMetrics &dm) ;
+
 DerivedMetrics compute_plant_metrics(const SensorData &sd, uint32_t now_ms);
 
 // ======================================================
@@ -88,3 +91,18 @@ float read_ultrasonic_cm() ;
 #define LIGHT_PIN 1
 
 bool read_light_sensor(float &lux_out);
+
+
+// ======================================================
+//  Sound
+// ======================================================
+#define SOUND_PIN 2
+
+bool read_sound_sensor(float &sound_out);
+
+// ======================================================
+//  Moisture
+// ======================================================
+#define MOISTURE_PIN 20
+
+bool read_moisture_sensor(float &moist_pct);
