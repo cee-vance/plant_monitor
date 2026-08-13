@@ -1,5 +1,5 @@
-#include "globals.h"
-
+#include "src/globals.h"
+#include "src/protocol.h"
 
 config_msg_t global_config = {
     .mode = MODE_THRESHOLD,   // or MODE_SCHEDULE, doesn't matter yet
@@ -34,3 +34,8 @@ TaskHandle_t displayNowTaskHandle     = nullptr;
 QueueHandle_t displayNowQueue = nullptr;
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);   // your LCD address + size
+
+TaskHandle_t mode_mgr_handle = nullptr;
+
+volatile ui_mode_t ui_mode = UI_MODE_LOGGING;
+

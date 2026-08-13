@@ -1,5 +1,10 @@
+
+#ifndef GLOBALS_H
+#define GLOBALS_H
+
+
+
 #pragma once
-#include "src/protocol.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include <LiquidCrystal_I2C.h>
@@ -16,8 +21,22 @@
 
 #define NUM_SCREENS    8
 
+#define UI_NOTIFY_UP     (1 << 0)
+#define UI_NOTIFY_DOWN   (1 << 1)
+#define UI_NOTIFY_ENTER  (1 << 2)
+
+
+enum ui_mode_t {
+    UI_MODE_LOGGING = 0,   // normal operation
+    UI_MODE_CONFIG  = 1    // user config wizard active
+};
+
+extern volatile ui_mode_t ui_mode;
+
+
 
 // Global config (shared across tasks)
+struct config_msg_t;   // forward declaration
 extern config_msg_t global_config;
 
 // Queue for config updates
@@ -37,7 +56,6 @@ extern QueueHandle_t vent_queue;
 
 extern TaskHandle_t control_loop_handle;
 
-#pragma once
 
 extern const TickType_t GLOBAL_TICK;
 
@@ -53,6 +71,16 @@ extern QueueHandle_t displayNowQueue;
 
 
 extern LiquidCrystal_I2C lcd;
+
+// state mgmt 
+extern TaskHandle_t mode_mgr_handle;
+
+// your content...
+
+#endif
+
+
+
 
 
 

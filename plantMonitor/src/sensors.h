@@ -91,8 +91,8 @@ void sensors_init();
 // ======================================================
 //  HC-SR04
 // ======================================================
-#define TRIG_PIN 6
-#define ECHO_PIN 7
+#define TRIG_PIN 7
+#define ECHO_PIN 15
 
 float read_ultrasonic_cm();
 

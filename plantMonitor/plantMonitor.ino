@@ -10,6 +10,7 @@
 #include "src/actuators.h"
 #include "src/sensors.h"
 #include "src/controls.h"
+#include "src/protocol.h"
 
 
 void setup() {
@@ -113,6 +114,25 @@ void setup() {
                 &displayNowTaskHandle);
 
 
+    xTaskCreate(
+            mode_mgr_task,        // task function
+            "node_mgr_task",      // name
+            4096,                 // stack size
+            nullptr,              // parameter
+            3,                    // priority (higher than logging)
+            &mode_mgr_handle      // store handle here
+        );
+
+
+    // Attach UP b    pinMode(BTN_UP_PIN,    INPUT_PULLUP);
+    pinMode(BTN_DOWN,  INPUT_PULLUP);
+    pinMode(BTN_ENTER, INPUT_PULLUP);
+    pinMode(BTN_UP, INPUT_PULLUP);
+
+    attachInterrupt(BTN_UP,    isr_up,    FALLING);
+    attachInterrupt(BTN_DOWN,  isr_down,  FALLING);
+    attachInterrupt(BTN_ENTER, isr_enter, FALLING);
+        
 
 }
 
