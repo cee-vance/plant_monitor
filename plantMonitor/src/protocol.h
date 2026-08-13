@@ -8,8 +8,8 @@
 
 #define DEBOUNCE_MS 25
 
-#define BTN_UP 4
-#define BTN_DOWN 6
+#define BTN_UP 6
+#define BTN_DOWN 4
 #define BTN_ENTER 5
 
 // ======================================================
@@ -71,8 +71,8 @@ bool debounce(button_id_t id, int pin);
 
 void  notify_mode_manager(uint32_t notifyBit) ;
 
-void IRAM_ATTR isr_up();
-void IRAM_ATTR isr_down();
+void IRAM_ATTR isr_up(); 
+void IRAM_ATTR isr_down(); 
 void IRAM_ATTR isr_enter(); 
 
 
@@ -82,6 +82,16 @@ extern volatile unsigned long lastDebounceDown;
 extern volatile unsigned long lastDebounceEnter;
 
 
+void attach_buttons();
+void detach_buttons();
+
+
+// ui stuff
+bool prompt_confirm(const char* message) ;
+void run_config_wizard();
+
+int prompt_for_int(const char* prompt, int initialValue, int minVal, int maxVal);
+control_mode_t prompt_for_watering_mode(control_mode_t initialMode) ;
 
 #endif
 

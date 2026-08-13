@@ -7,7 +7,7 @@ config_msg_t global_config = {
     .schedule_hours = 0,
 
     .temp_min = 20,           // start opening at 20°C
-    .temp_max = 28            // fully open at 28°C
+    .temp_max = 33            // fully open at 28°C
 };          // for debugging
 
 const TickType_t GLOBAL_TICK = pdMS_TO_TICKS(1000);

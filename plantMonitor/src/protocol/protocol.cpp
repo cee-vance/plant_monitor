@@ -159,9 +159,9 @@ void mode_mgr_task(void* arg) {
 
     uint32_t notifyValue = 0;
 
-    for (;;) {
+    while (true) {
 
-        // Wait for ISR notification
+        // Wait for ISR notification (button press)
         xTaskNotifyWait(
             0,
             ULONG_MAX,
@@ -169,45 +169,38 @@ void mode_mgr_task(void* arg) {
             portMAX_DELAY
         );
 
-        // Only care about mode switching
+        // Only one transition: LOGGING → CONFIG
         if (ui_mode == UI_MODE_LOGGING) {
+
             Serial.println("UI MODE CHANGING!! LFG!!");
-            // Any button → switch to CONFIG mode
+
             ui_mode = UI_MODE_CONFIG;
 
-            // Suspend logging-related tasks
+            // Suspend logging tasks
             vTaskSuspend(regularDisplayTaskHandle);
             vTaskSuspend(read_sensors_handle);
             vTaskSuspend(displayNowTaskHandle);
+            
+            vTaskDelay(100 / portTICK_PERIOD_MS);
 
-            // Resume config-related tasks
-            vTaskResume(mode_mgr_handle);
+            // Run synchronous wizard
+            run_config_wizard();
 
-            continue;
-        }
+            // Wizard returns → go back to LOGGING
+            ui_mode = UI_MODE_LOGGING;
 
-        // Later: handle switching back to LOGGING
-        // (user_config_task will notify us when done)
-        if (ui_mode == UI_MODE_CONFIG) {
+            vTaskDelay(100 / portTICK_PERIOD_MS); // just to make sure no buttons down
+            // Resume logging tasks
+            vTaskResume(regularDisplayTaskHandle);
+            vTaskResume(read_sensors_handle);
+            vTaskResume(displayNowTaskHandle);
 
-            if (notifyValue & UI_NOTIFY_ENTER) {
-                // ENTER means "done with config"
-                ui_mode = UI_MODE_LOGGING
-;
-
-                // Resume logging tasks
-                vTaskResume(regularDisplayTaskHandle);
-                vTaskResume(read_sensors_handle);
-                vTaskResume(displayNowTaskHandle);
-
-                // Suspend config task
-                vTaskSuspend(mode_mgr_handle);
-            }
-
+            attach_buttons();
             continue;
         }
     }
 }
+
 
 
  bool  debounce(button_id_t id, int gpioPin) {
@@ -232,6 +225,183 @@ void mode_mgr_task(void* arg) {
 
     return false;
 }
+
+
+void attach_buttons() {
+    attachInterrupt(BTN_UP,    isr_up,    FALLING);
+    attachInterrupt(BTN_DOWN,  isr_down,  FALLING);
+    attachInterrupt(BTN_ENTER, isr_enter, FALLING);
+}
+
+void detach_buttons() {
+    detachInterrupt(BTN_UP);
+    detachInterrupt(BTN_DOWN);
+    detachInterrupt(BTN_ENTER);
+}
+
+
+button_id_t wait_for_button() {
+    const int debounce_ms = 40;
+    const int release_ms  = 40;
+
+    while (true) {
+        if (digitalRead(BTN_UP) == LOW) {
+            delay(debounce_ms);
+            if (digitalRead(BTN_UP) == LOW) {
+                while (digitalRead(BTN_UP) == LOW) {
+                    delay(release_ms);
+                }
+                return BTN_UP_ID;
+            }
+        }
+
+        if (digitalRead(BTN_DOWN) == LOW) {
+            delay(debounce_ms);
+            if (digitalRead(BTN_DOWN) == LOW) {
+                while (digitalRead(BTN_DOWN) == LOW) {
+                    delay(release_ms);
+                }
+                return BTN_DOWN_ID;
+            }
+        }
+
+        if (digitalRead(BTN_ENTER) == LOW) {
+            delay(debounce_ms);
+            if (digitalRead(BTN_ENTER) == LOW) {
+                while (digitalRead(BTN_ENTER) == LOW) {
+                    delay(release_ms);
+                }
+                return BTN_ENTER_ID;
+            }
+        }
+
+        delay(10);
+    }
+}
+
+
+bool prompt_confirm(const char* message) {
+    lcd.clear();
+    lcd.print(message);
+    lcd.setCursor(0, 1);
+    lcd.print("UP=yes DOWN=no");
+
+    button_id_t b = wait_for_button();
+
+    return (b == BTN_UP_ID || b == BTN_ENTER_ID);
+}
+
+
+void run_config_wizard() {
+    detach_buttons();   // stop ISR-driven UI
+
+    // 1. Confirm entering config mode
+    if (!prompt_confirm("Enter config?")) {
+        
+        return;
+    }
+
+    // Build a temporary config from current settings
+    config_msg_t temp = global_config;
+
+    // 2. Prompt for watering mode (THRESHOLD or SCHEDULE)
+    temp.mode = prompt_for_watering_mode(global_config.mode);
+
+    // 3. Depending on mode, prompt for threshold or schedule hours
+    if (temp.mode == MODE_THRESHOLD) {
+        temp.threshold_pct =
+            prompt_for_int("Threshold %:", global_config.threshold_pct, 0, 100);
+    } else {
+        temp.schedule_hours =
+            prompt_for_int("Water hours:", global_config.schedule_hours, 0, 24);
+    }
+
+    // 4. Prompt for temperature range
+    temp.temp_min =
+        prompt_for_int("Temp min:", global_config.temp_min, 0, 50);
+
+    temp.temp_max =
+        prompt_for_int("Temp max:", global_config.temp_max, temp.temp_min+1, 50);
+
+    // 5. Final confirmation
+
+    if(prompt_confirm("Apply settings?")){
+         global_config = temp;   // apply new config
+    }
+
+    return;
+    
+}
+
+
+
+int prompt_for_int(const char* prompt, int initialValue, int minVal, int maxVal) {
+    int value = initialValue;
+
+    lcd.clear();
+    lcd.print(prompt);
+    lcd.setCursor(0, 1);
+    lcd.print(value);
+
+    while (true) {
+        button_id_t b = wait_for_button();
+
+        if (b == BTN_UP_ID) {
+            value++;
+            if (value > maxVal) value = maxVal;
+        }
+        else if (b == BTN_DOWN_ID) {
+            value--;
+            if (value < minVal) value = minVal;
+        }
+        else if (b == BTN_ENTER_ID) {
+            return value;   // confirm
+        }
+
+        // Update display
+        lcd.setCursor(0, 1);
+        lcd.print("        ");   // clear line
+        lcd.setCursor(0, 1);
+        lcd.print(value);
+    }
+}
+
+
+
+control_mode_t prompt_for_watering_mode(control_mode_t initialMode) {
+    control_mode_t mode = initialMode;
+
+    lcd.clear();
+    lcd.print("Watering mode:");
+    lcd.setCursor(0, 1);
+    lcd.print(mode == MODE_THRESHOLD ? "THRESHOLD" : "SCHEDULE");
+
+    while (true) {
+        button_id_t b = wait_for_button();
+
+        if (b == BTN_UP_ID || b == BTN_DOWN_ID) {
+            // toggle mode
+            mode = (mode == MODE_THRESHOLD) ? MODE_SCHEDULE : MODE_THRESHOLD;
+
+            lcd.setCursor(0, 1);
+            lcd.print("          "); // clear line
+            lcd.setCursor(0, 1);
+            lcd.print(mode == MODE_THRESHOLD ? "THRESHOLD" : "SCHEDULE");
+        }
+        else if (b == BTN_ENTER_ID) {
+            return mode;   // confirm selection
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
 
 
 

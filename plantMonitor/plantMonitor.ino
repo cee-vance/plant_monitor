@@ -129,9 +129,7 @@ void setup() {
     pinMode(BTN_ENTER, INPUT_PULLUP);
     pinMode(BTN_UP, INPUT_PULLUP);
 
-    attachInterrupt(BTN_UP,    isr_up,    FALLING);
-    attachInterrupt(BTN_DOWN,  isr_down,  FALLING);
-    attachInterrupt(BTN_ENTER, isr_enter, FALLING);
+        attach_buttons();
         
 
 }
