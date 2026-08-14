@@ -86,6 +86,11 @@ extern QueueHandle_t threshold_queue;
 
 extern QueueHandle_t raw_queue;
 
+extern TaskHandle_t manualWaterTaskHandle;
+
+extern bool threshold_active;
+
+
 #endif
 
 

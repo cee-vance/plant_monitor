@@ -36,13 +36,14 @@ void sensors_init() {
 void read_sensors_task(void *pvParameters)
 {
     const TickType_t tick = pdMS_TO_TICKS(100);
-
+    Serial.println("Sensor task");
     while (true)
     {
         SensorData raw = read_raw_sensors();
         uint32_t now_ms = millis();
 
-        xQueueSend(raw_queue, &raw, 0);
+        // xQueueSend(raw_queue, &raw, 0);
+        xQueueOverwrite(raw_queue, &raw);
         DerivedMetrics derived = compute_plant_metrics(raw, now_ms);
 
         // print_derived_metrics(derived);
@@ -51,7 +52,7 @@ void read_sensors_task(void *pvParameters)
 
         logging_send_data(pkt);
 
-        vTaskDelay(GLOBAL_TICK);
+        vTaskDelay(20);
     }
 }
 

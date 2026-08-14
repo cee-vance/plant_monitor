@@ -63,3 +63,7 @@ void update_vent_position(float current_temp,const config_msg_t &cfg );
 void schedule_timer_callback(TimerHandle_t xTimer) ;
 
 void water_schedule_task(void *pv) ;
+
+
+// add water
+void manual_water_task(void *pv) ;

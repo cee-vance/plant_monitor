@@ -135,7 +135,7 @@ void stepper_go_to(long target) {
 void pump_dispense_ml(float ml) {
     int steps = (int)(ml * STEPS_PER_ML);
     stepper_left(steps);
-    Serial.println("DISPENSING WATER ON SCHEDULE!!! WOOHOO!");
+    Serial.println("DISPENSING WATER!!");
 }
 
 void pump_draw_ml(float ml) {
@@ -215,4 +215,62 @@ void update_vent_position(float current_temp, const config_msg_t &cfg) {
     // In range → do nothing
     Serial.println("Vent: HOLD (in range)");
 }
+
+
+
+// ADD WATER 
+
+
+
+
+
+void manual_water_task(void *pv) {
+
+    Serial.println("Manual watering task created, waiting for START");
+
+    
+    // Main loop: run until STOP notification
+    while (true) {
+
+
+        uint32_t notifyValue = 0;
+            // Wait indefinitely for START notification
+        xTaskNotifyWait(
+            0,            // don't clear bits on entry
+            ULONG_MAX,    // clear all bits on exit
+            &notifyValue, // store notification value
+            portMAX_DELAY // block until notified
+        );
+
+        bool stopRequested = false;
+
+        while(!stopRequested){
+            
+
+            // Yield so notifications can be received
+            
+
+            uint32_t stopValue = 0;
+            if (xTaskNotifyWait(
+                    0,
+                    ULONG_MAX,
+                    &stopValue,
+                    0          // zero timeout → non-blocking
+                ) == pdTRUE)
+            {
+                stopRequested = true;
+                Serial.println("Stop requested");
+            }
+
+            // Do one step of watering
+            stepper_right(200);   // or pump_dispense_ml(1);
+
+            vTaskDelay(30);
+
+        }
+    
+    }
+}
+
+
 

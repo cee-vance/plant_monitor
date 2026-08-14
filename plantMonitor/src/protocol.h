@@ -88,6 +88,9 @@ void run_config_wizard();
 int prompt_for_int(const char* prompt, int initialValue, int minVal, int maxVal);
 control_mode_t prompt_for_watering_mode(control_mode_t initialMode) ;
 
+
+void run_manual_water_prompt();
+
 #endif
 
 

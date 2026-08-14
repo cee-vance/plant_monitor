@@ -37,11 +37,9 @@ void setup() {
     // Create queue for plant_data_t packets
     plant_data_queue = xQueueCreate(1, sizeof(plant_data_t));
 
-
-
     vent_queue = xQueueCreate(1, sizeof(float));  // raw temp
 
-      raw_queue         = xQueueCreate(5, sizeof(SensorData));
+      raw_queue         = xQueueCreate(1, sizeof(SensorData));
     schedule_queue    = xQueueCreate(4, sizeof(int));
 
     threshold_queue = xQueueCreate(1, sizeof(int));
@@ -104,13 +102,24 @@ void setup() {
             &mode_mgr_handle      // store handle here
         );
 
+            // Create the manual watering task
+    xTaskCreate(
+        manual_water_task,        // task function
+        "manualWater",            // name
+        2048,                     // stack size
+        NULL,                     // parameter
+        2,                        // priority
+        &manualWaterTaskHandle    // handle out
+    );
+
+
 
     // Attach UP b    pinMode(BTN_UP_PIN,    INPUT_PULLUP);
     pinMode(BTN_DOWN,  INPUT_PULLUP);
     pinMode(BTN_ENTER, INPUT_PULLUP);
     pinMode(BTN_UP, INPUT_PULLUP);
 
-        attach_buttons();
+    attach_buttons();
 
 
     

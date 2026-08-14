@@ -3,7 +3,7 @@
 
 config_msg_t global_config = {
     .mode = MODE_THRESHOLD,   // or MODE_SCHEDULE, doesn't matter yet
-    .threshold_pct = 40,
+    .threshold_pct = 10,
     .schedule_mins = 5,
 
     .temp_min = 20,           // start opening at 20°C
@@ -44,4 +44,9 @@ QueueHandle_t schedule_queue = nullptr;
 QueueHandle_t threshold_queue = nullptr;
 
 QueueHandle_t raw_queue = nullptr;
+
+TaskHandle_t manualWaterTaskHandle = nullptr;
+
+bool threshold_active = false;
+
 

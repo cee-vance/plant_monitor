@@ -2,6 +2,7 @@
 #include "src/globals.h"
 
 void logging_send_data(const plant_data_t &msg) {
+    Serial.println("received logging data");
     xQueueOverwrite(plant_data_queue, &msg);
 
 }
@@ -64,26 +65,21 @@ void logging_task(void *pvParameters)
     plant_data_t pkt;
 
     while (true) {
-        // Block until a packet arrives
-         if (xQueuePeek(plant_data_queue, &pkt, portMAX_DELAY)) {
+
+        if (xQueuePeek(plant_data_queue, &pkt, portMAX_DELAY)) {
 
             bool hasRelevant = relevance_check(pkt, global_config);
 
             if (hasRelevant) {
-                // Notify display_now_task
                 xTaskNotifyGive(displayNowTaskHandle);
             } else {
                 int dummy;
                 Serial.println("FLUSHED DISPLAY NOW QUEUE");
                 while (xQueueReceive(displayNowQueue, &dummy, 0)) {}
             }
-
-            // Normal logging
-           // logging_print_data(pkt);
         }
 
-        // Optional: throttle logging
-        vTaskDelay(GLOBAL_TICK);
+        vTaskDelay(30);
     }
 }
 
@@ -184,33 +180,40 @@ bool relevance_check(const plant_data_t &d,
                      const config_msg_t &cfg)
 {
     bool queued = false;
-    display_topic_t topic;
 
     // Temperature out of range
     if (d.temperature_c > cfg.temp_max || d.temperature_c < cfg.temp_min) {
-
         Serial.println("TEMP OUT OF RANGE!!");
-        topic = DISP_TOPIC_TEMP;
+        display_topic_t topic = DISP_TOPIC_TEMP;
         xQueueSend(displayNowQueue, &topic, 0);
-
-        // start the control loop to bring water threshold back up
-  
         queued = true;
     }
 
-    // Moisture below threshold (threshold mode only)
-    if (cfg.mode == MODE_THRESHOLD &&
-        d.moisture_pct < cfg.threshold_pct)
-    {
-        display_topic_t topic2;
-        topic2 = DISP_TOPIC_MOIST;
-        xQueueSend(displayNowQueue, &topic2, 0);
+    // --- Moisture threshold with hysteresis ---
+    if (cfg.mode == MODE_THRESHOLD) {
 
+        const float low  = cfg.threshold_pct - 3.0f;   // ON below this
+        const float high = cfg.threshold_pct + 3.0f;   // OFF above this
 
-        //     Serial.println("WATER LEVEL DROPPED BELOW THRESHOLD!! LOOK OUT!!");
-        // int dummy = 1;
-        // xQueueSend(threshold_queue, &dummy, 0);
-        queued = true;
+        // Trigger watering ONCE when moisture drops below low band
+        if (!threshold_active && d.moisture_pct < low) {
+
+            Serial.println("WATER LEVEL DROPPED BELOW THRESHOLD!! LOOK OUT!!");
+
+            display_topic_t topic2 = DISP_TOPIC_MOIST;
+            xQueueSend(displayNowQueue, &topic2, 0);
+
+            int dummy = 1;
+            xQueueSend(threshold_queue, &dummy, 0);
+
+            threshold_active = true;
+            queued = true;
+        }
+
+        // Reset debounce when moisture rises above high band
+        if (threshold_active && d.moisture_pct > high) {
+            threshold_active = false;
+        }
     }
 
     return queued;
@@ -243,8 +246,8 @@ void display_now_task(void *pv) {
         while (xQueueReceive(displayNowQueue, &idx, 0)) {
             xQueuePeek(plant_data_queue, &d, 0);
 
-            Serial.println("PRINTING PLANT DATA RECEIVED FROM DISPLAY NOW QUEUE");
-            logging_print_data(d);
+            // Serial.println("PRINTING PLANT DATA RECEIVED FROM DISPLAY NOW QUEUE");
+            // print_data(d);
             display_screen(idx, d);
             vTaskDelay(pdMS_TO_TICKS(1500));
         }

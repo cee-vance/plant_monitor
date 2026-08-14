@@ -276,8 +276,15 @@ void run_config_wizard() {
     temp.temp_max =
         prompt_for_int("Temp max:", global_config.temp_max, temp.temp_min+1, 50);
 
-    // 5. Final confirmation
 
+
+
+    // refill water 
+    if(prompt_confirm("Add water?")){
+        run_manual_water_prompt();
+    }
+
+        // 5. Final confirmation
     if(prompt_confirm("Apply settings?")){
         
          global_config = temp;   // apply new config
@@ -287,6 +294,38 @@ void run_config_wizard() {
     return;
     
 }
+
+void run_manual_water_prompt() {
+
+    // --- START prompt ---
+    lcd.clear();
+    lcd.print("Press to START");
+    lcd.setCursor(0,1);
+    lcd.print("ENTER to begin");
+
+    // Wait for ENTER (or any button if you prefer)
+    wait_for_button();
+
+    // Notify manual watering task to START
+    xTaskNotify(manualWaterTaskHandle, 1, eSetValueWithoutOverwrite);
+
+    // --- STOP prompt ---
+    lcd.clear();
+    lcd.print("Dispensing...");
+    lcd.setCursor(0,1);
+    lcd.print("Press to STOP");
+
+    // Wait for ANY button to stop
+    wait_for_button();
+
+    // Notify manual watering task to STOP
+    xTaskNotify(manualWaterTaskHandle, 2, eSetValueWithoutOverwrite);
+
+    lcd.clear();
+    lcd.print("Done!");
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+}
+
 
 
 
