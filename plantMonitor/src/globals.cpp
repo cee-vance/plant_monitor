@@ -4,7 +4,7 @@
 config_msg_t global_config = {
     .mode = MODE_THRESHOLD,   // or MODE_SCHEDULE, doesn't matter yet
     .threshold_pct = 40,
-    .schedule_hours = 0,
+    .schedule_mins = 5,
 
     .temp_min = 20,           // start opening at 20°C
     .temp_max = 33            // fully open at 28°C
@@ -38,4 +38,10 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);   // your LCD address + size
 TaskHandle_t mode_mgr_handle = nullptr;
 
 volatile ui_mode_t ui_mode = UI_MODE_LOGGING;
+
+QueueHandle_t schedule_queue = nullptr;
+
+QueueHandle_t threshold_queue = nullptr;
+
+QueueHandle_t raw_queue = nullptr;
 

@@ -3,6 +3,7 @@
 #include "driver/mcpwm.h"
 #include "src/protocol.h"
 #include "src/logging.h"
+#include "timers.h"
 
 
 
@@ -56,3 +57,9 @@ void vent_close();
 void update_vent_position(float current_temp,const config_msg_t &cfg );
 
 
+// ======================================================
+//  Water scheduling
+// ======================================================
+void schedule_timer_callback(TimerHandle_t xTimer) ;
+
+void water_schedule_task(void *pv) ;

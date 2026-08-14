@@ -2,7 +2,8 @@
 #include "src/globals.h"
 
 void logging_send_data(const plant_data_t &msg) {
-    xQueueSend(plant_data_queue, &msg, 0);
+    xQueueOverwrite(plant_data_queue, &msg);
+
 }
 
 void logging_print_data(const plant_data_t &msg) {
@@ -64,7 +65,7 @@ void logging_task(void *pvParameters)
 
     while (true) {
         // Block until a packet arrives
-        if (xQueueReceive(plant_data_queue, &pkt, portMAX_DELAY)) {
+         if (xQueuePeek(plant_data_queue, &pkt, portMAX_DELAY)) {
 
             bool hasRelevant = relevance_check(pkt, global_config);
 
@@ -73,11 +74,12 @@ void logging_task(void *pvParameters)
                 xTaskNotifyGive(displayNowTaskHandle);
             } else {
                 int dummy;
-                  while (xQueueReceive(displayNowQueue, &dummy, 0)) {}
+                Serial.println("FLUSHED DISPLAY NOW QUEUE");
+                while (xQueueReceive(displayNowQueue, &dummy, 0)) {}
             }
 
             // Normal logging
-            logging_print_data(pkt);
+           // logging_print_data(pkt);
         }
 
         // Optional: throttle logging
@@ -97,8 +99,8 @@ void regular_display_task(void *pv) {
     while(true) {
 
         // Always peek the most recent data
-        if (xQueueReceive(plant_data_queue, &d, portMAX_DELAY)) {
-            Serial.println("display recieved plant data");
+        if (xQueuePeek(plant_data_queue, &d, portMAX_DELAY)) {
+            //Serial.println("display recieved plant data");
             // Time to switch to the next metric?
             if (millis() - lastSwitch > SCREEN_INTERVAL_MS) {
                 screenIndex = (screenIndex + 1) % NUM_SCREENS;
@@ -186,8 +188,13 @@ bool relevance_check(const plant_data_t &d,
 
     // Temperature out of range
     if (d.temperature_c > cfg.temp_max || d.temperature_c < cfg.temp_min) {
+
+        Serial.println("TEMP OUT OF RANGE!!");
         topic = DISP_TOPIC_TEMP;
         xQueueSend(displayNowQueue, &topic, 0);
+
+        // start the control loop to bring water threshold back up
+  
         queued = true;
     }
 
@@ -198,6 +205,11 @@ bool relevance_check(const plant_data_t &d,
         display_topic_t topic2;
         topic2 = DISP_TOPIC_MOIST;
         xQueueSend(displayNowQueue, &topic2, 0);
+
+
+        //     Serial.println("WATER LEVEL DROPPED BELOW THRESHOLD!! LOOK OUT!!");
+        // int dummy = 1;
+        // xQueueSend(threshold_queue, &dummy, 0);
         queued = true;
     }
 
@@ -210,17 +222,29 @@ void display_now_task(void *pv) {
     for (;;) {
 
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        Serial.println("RECEIVED A DISPLAY NOW EVENT!");
+
         vTaskSuspend(regularDisplayTaskHandle);
 
-        xQueueReceive(displayNowQueue, &idx, portMAX_DELAY);
+        if (!xQueueReceive(displayNowQueue, &idx, 0)) {  // this doesn't block
+            Serial.println("DISPLAY_NOW: no topic available");
+            vTaskResume(regularDisplayTaskHandle);
+            continue;
+        }
 
         plant_data_t d;
         xQueuePeek(plant_data_queue, &d, 0);
+
+
         display_screen(idx, d);
         vTaskDelay(pdMS_TO_TICKS(1500));
 
         while (xQueueReceive(displayNowQueue, &idx, 0)) {
             xQueuePeek(plant_data_queue, &d, 0);
+
+            Serial.println("PRINTING PLANT DATA RECEIVED FROM DISPLAY NOW QUEUE");
+            logging_print_data(d);
             display_screen(idx, d);
             vTaskDelay(pdMS_TO_TICKS(1500));
         }

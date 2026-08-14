@@ -26,6 +26,9 @@
 #define UI_NOTIFY_ENTER  (1 << 2)
 
 
+#define GLOBAL_SCHED_ML  .5         // always disense half a mL on schedule
+
+
 enum ui_mode_t {
     UI_MODE_LOGGING = 0,   // normal operation
     UI_MODE_CONFIG  = 1    // user config wizard active
@@ -69,13 +72,19 @@ extern QueueHandle_t displayNowQueue;
 
 
 
+extern QueueHandle_t schedule_queue;
 
 extern LiquidCrystal_I2C lcd;
 
 // state mgmt 
 extern TaskHandle_t mode_mgr_handle;
 
-// your content...
+// threshold
+
+extern QueueHandle_t threshold_queue;
+
+
+extern QueueHandle_t raw_queue;
 
 #endif
 

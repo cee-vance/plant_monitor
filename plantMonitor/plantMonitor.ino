@@ -37,33 +37,14 @@ void setup() {
     // Create queue for plant_data_t packets
     plant_data_queue = xQueueCreate(1, sizeof(plant_data_t));
 
+
+
     vent_queue = xQueueCreate(1, sizeof(float));  // raw temp
 
-    // ======================================================
-    // Attach UART RX interrupt
-    // ======================================================
-    // ESP32-S3: attachInterruptArg is safe for Serial RX pin
-    attachInterrupt(
-        digitalPinToInterrupt(0),   // or your actual RX pin
-        cmd_isr,
-        FALLING                      // depends on your wiring
-    );
+      raw_queue         = xQueueCreate(5, sizeof(SensorData));
+    schedule_queue    = xQueueCreate(4, sizeof(int));
 
-    // ======================================================
-    // Create command_task (applies config updates)
-    // ======================================================
-    xTaskCreatePinnedToCore(
-        command_task,
-        "cmd_task",
-        4096,
-        NULL,
-        1,
-        &command_task_handle,   // ← your handle
-        1
-    );
-
-
-
+    threshold_queue = xQueueCreate(1, sizeof(int));
 
     // Create logging task
     xTaskCreatePinnedToCore(
@@ -130,6 +111,19 @@ void setup() {
     pinMode(BTN_UP, INPUT_PULLUP);
 
         attach_buttons();
+
+
+    
+
+xTaskCreate(
+    water_schedule_task,
+    "water_sched",
+    4096,
+    NULL,
+    3,
+    NULL
+);
+
         
 
 }

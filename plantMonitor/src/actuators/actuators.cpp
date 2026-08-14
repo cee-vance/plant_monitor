@@ -5,10 +5,10 @@
 // ===============================
 //  Pin Definitions
 // ===============================
-#define IN1 18
-#define IN2 19
-#define IN3 20
-#define IN4 21
+#define IN1 16
+#define IN2 17
+#define IN3 18
+#define IN4 8
 
 // ===============================
 //  Position Tracking
@@ -134,7 +134,8 @@ void stepper_go_to(long target) {
 // ===============================
 void pump_dispense_ml(float ml) {
     int steps = (int)(ml * STEPS_PER_ML);
-    stepper_right(steps);
+    stepper_left(steps);
+    Serial.println("DISPENSING WATER ON SCHEDULE!!! WOOHOO!");
 }
 
 void pump_draw_ml(float ml) {
@@ -168,51 +169,22 @@ void vent_close() {
 
 
 
-// // static uint32_t angle_to_duty(int angle) {
-// //     // Clamp angle
-// //     if (angle < 0) angle = 0;
-// //     if (angle > 180) angle = 180;
-
-// //     // Convert angle to pulse width (1000–2000 µs)
-// //     int pulse_us = 1000 + (angle * 1000) / 180;
-
-// //     // Convert pulse width to duty cycle
-// //     // 50 Hz → 20,000 µs period
-// //     uint32_t duty = (pulse_us * 65535) / 20000;
-
-// //     return duty;
-// // }
+void schedule_timer_callback(TimerHandle_t xTimer) {
+    int qty = 1;
+    xQueueSend(schedule_queue, &qty, 0);
+}
 
 
-// // void vent_set_angle(int angle) {
-// //     uint32_t duty = angle_to_duty(angle);
-// //     ledcWrite(SERVO_CHANNEL, duty);
-// // }
+void water_schedule_task(void *pv) {
+    int qty;
 
-// // ------------------------------------------------------
-// // Compute vent angle from current temperature + config
-// // ------------------------------------------------------
-// int compute_vent_angle(float current_temp, const config_msg_t &cfg)
-// {
-//     // Clamp temperature to configured range
-//     float t = current_temp;
-//     if (t < cfg.temp_min) t = cfg.temp_min;
-//     if (t > cfg.temp_max) t = cfg.temp_max;
+    while (true) {
+        if (xQueueReceive(schedule_queue, &qty, portMAX_DELAY)) {
+            pump_dispense_ml(GLOBAL_SCHED_ML);   // SAFE HERE
+        }
+    }
+}
 
-//     // Map temperature → servo angle
-//     // temp_min  → VENT_CLOSE_ANGLE
-//     // temp_max  → VENT_OPEN_ANGLE
-//     float ratio = (t - cfg.temp_min) / (float)(cfg.temp_max - cfg.temp_min);
-
-//     int angle = (int)(VENT_CLOSE_ANGLE +
-//                       ratio * (VENT_OPEN_ANGLE - VENT_CLOSE_ANGLE));
-
-//     // Clamp final angle
-//     if (angle < VENT_CLOSE_ANGLE) angle = VENT_CLOSE_ANGLE;
-//     if (angle > VENT_OPEN_ANGLE)  angle = VENT_OPEN_ANGLE;
-
-//     return angle;
-// }
 
 
 

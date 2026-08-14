@@ -42,13 +42,14 @@ void read_sensors_task(void *pvParameters)
         SensorData raw = read_raw_sensors();
         uint32_t now_ms = millis();
 
+        xQueueSend(raw_queue, &raw, 0);
         DerivedMetrics derived = compute_plant_metrics(raw, now_ms);
 
-        print_derived_metrics(derived);
+        // print_derived_metrics(derived);
 
         plant_data_t pkt = build_plant_packet(raw, derived);
 
-        xQueueSend(plant_data_queue, &pkt, 0);
+        logging_send_data(pkt);
 
         vTaskDelay(GLOBAL_TICK);
     }
@@ -104,7 +105,7 @@ SensorData read_raw_sensors() {
     d.humidity = am2320.readHumidity();
     d.temp_ok  = !isnan(d.temp) && !isnan(d.humidity);
 
-    Serial.printf("temp: %.2f hum: %.2f\n", d.temp, d.humidity);
+  //  Serial.printf("temp: %.2f hum: %.2f\n", d.temp, d.humidity);
 
     // --- Height (ultrasonic) ---
     float h = read_ultrasonic_cm();

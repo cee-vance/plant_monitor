@@ -34,7 +34,7 @@ enum button_id_t {
 struct config_msg_t {
     control_mode_t mode;
     uint8_t        threshold_pct;
-    uint32_t       schedule_hours;
+    uint32_t       schedule_mins;
 
     // Vent control (temperature-based)
     uint8_t        temp_min;          // start opening
@@ -43,23 +43,16 @@ struct config_msg_t {
 
 
 // ======================================================
-//  Protocol API
+//  Configuration
 // ======================================================
 
-// ISR (implemented in protocol.cpp)
-extern void IRAM_ATTR cmd_isr();
 
-// Task that applies config updates
-void command_task(void *pvParameters);
-
-// Low-level byte read helper
-uint8_t read_cmd_byte_from_hw();
 
 
 // handles setting up a new periodic watering schedule 
 void protocol_apply_schedule(const config_msg_t &cfg);
 
-void protocol_apply_threshold(const config_msg_t &cfg);
+
 
 
 // configuration 
@@ -74,6 +67,8 @@ void  notify_mode_manager(uint32_t notifyBit) ;
 void IRAM_ATTR isr_up(); 
 void IRAM_ATTR isr_down(); 
 void IRAM_ATTR isr_enter(); 
+
+void schedule_timer_callback(TimerHandle_t xTimer) ;
 
 
 

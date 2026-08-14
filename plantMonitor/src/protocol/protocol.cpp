@@ -1,116 +1,64 @@
 #include "src/globals.h"
 #include "src/protocol.h"
+#include "src/actuators.h"
 #include <Arduino.h>
 
-// ======================================================
-//  Binary packet buffer (ISR fills this)
-// ======================================================
 
-static uint8_t rx_buf[sizeof(config_msg_t)];
-static uint8_t rx_idx = 0;
 
 volatile unsigned long lastDebounceUp   = 0;
 volatile unsigned long lastDebounceDown = 0;
 volatile unsigned long lastDebounceEnter= 0;
 
 
-// ======================================================
-//  Read one byte from USART (Serial)
-// ======================================================
-
-uint8_t read_cmd_byte_from_hw() {
-    return Serial.read();   // ISR-safe: interrupt fires only when data is available
-}
 
 
-// ======================================================
-//  ISR: accumulate bytes until full config_msg_t received,
-//       then queue the struct and reset buffer.
-// ======================================================
 
-void IRAM_ATTR cmd_isr() {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+static TimerHandle_t schedule_timer = NULL;
 
-    // Read one byte from UART
-    uint8_t b = read_cmd_byte_from_hw();
-
-    // Store into buffer
-    rx_buf[rx_idx++] = b;
-
-    // Full struct received?
-    if (rx_idx == sizeof(config_msg_t)) {
-
-        // Reset index for next packet
-        rx_idx = 0;
-
-        // Convert raw bytes into a config_msg_t
-        config_msg_t cfg;
-        memcpy(&cfg, rx_buf, sizeof(cfg));
-
-        // Push full struct to control loop
-        xQueueSendFromISR(config_queue, &cfg, &xHigherPriorityTaskWoken);
-    }
-
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-}
-
-void command_task(void *pvParameters) {
-    config_msg_t incoming;
-
-    while (true) {
-        if (xQueueReceive(config_queue, &incoming, portMAX_DELAY)) {
-
-            memcpy((void*)&global_config, (void*)&incoming, sizeof(config_msg_t));
-
-            protocol_apply_schedule(incoming);
-            protocol_apply_threshold(incoming);
-
-            // Later:
-            // protocol_apply_mode(incoming);
-            // protocol_apply_quantity(incoming);
-
-                 vTaskDelay(GLOBAL_TICK);
-        }
-    }
-}
-
-
-static int last_schedule_hours = -1;   // only reconfigure when changed
-static esp_timer_handle_t schedule_timer;
 
 void protocol_apply_schedule(const config_msg_t &cfg) {
 
-    // Only act if schedule changed
-    if (cfg.schedule_hours != last_schedule_hours) {
-
-        // Stop old timer
-        esp_timer_stop(schedule_timer);
-
-        // Start new timer if > 0
-        if (cfg.schedule_hours > 0) {
-            uint64_t interval_us =
-                (uint64_t)cfg.schedule_hours * 3600ULL * 1000000ULL;
-
-            esp_timer_start_periodic(schedule_timer, interval_us);
+    // If user selected THRESHOLD mode → stop schedule timer
+    if (cfg.mode == MODE_THRESHOLD) {
+        if (schedule_timer != NULL) {
+            xTimerStop(schedule_timer, 0);
         }
-
-        last_schedule_hours = cfg.schedule_hours;
+        return;
     }
+
+    // Otherwise MODE_SCHEDULE → create/start timer
+    uint32_t period_ms = cfg.schedule_mins * 60UL * 1000UL;
+
+    // Create timer if needed
+    if (schedule_timer == NULL) {
+        schedule_timer = xTimerCreate(
+            "sched",
+            pdMS_TO_TICKS(period_ms),
+            pdTRUE,        // auto-reload
+            NULL,
+            schedule_timer_callback
+        );
+    } else {
+        // Timer already exists → update period
+        xTimerChangePeriod(schedule_timer,
+                           pdMS_TO_TICKS(period_ms),
+                           0);
+    }
+
+    // Start the timer
+    xTimerStart(schedule_timer, 0);
+
+    // Optional LCD feedback
+    // lcd.clear();
+    // lcd.print("Schedule: ");
+    // lcd.print(cfg.schedule_mins);
+    // lcd.print(" mins");
+    // vTaskDelay(1500 / portTICK_PERIOD_MS);
 }
 
-static int last_threshold_pct = -1;
 
-void protocol_apply_threshold(const config_msg_t &cfg) {
 
-    if (cfg.threshold_pct != last_threshold_pct) {
 
-        // Update internal threshold state
-        last_threshold_pct = cfg.threshold_pct;
-
-        // (Optional) log or notify control loop
-        // (Optional) reset hysteresis state
-    }
-}
 
 void  notify_mode_manager(uint32_t notifyBit) {
 
@@ -184,18 +132,22 @@ void mode_mgr_task(void* arg) {
             vTaskDelay(100 / portTICK_PERIOD_MS);
 
             // Run synchronous wizard
-            run_config_wizard();
+           run_config_wizard();
 
-            // Wizard returns → go back to LOGGING
             ui_mode = UI_MODE_LOGGING;
 
-            vTaskDelay(100 / portTICK_PERIOD_MS); // just to make sure no buttons down
-            // Resume logging tasks
-            vTaskResume(regularDisplayTaskHandle);
-            vTaskResume(read_sensors_handle);
-            vTaskResume(displayNowTaskHandle);
+        // NOW apply schedule safely
+        protocol_apply_schedule(global_config);
 
-            attach_buttons();
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskResume(regularDisplayTaskHandle);
+        vTaskResume(read_sensors_handle);
+        vTaskResume(displayNowTaskHandle);
+
+        attach_buttons();
+
+      
+
             continue;
         }
     }
@@ -312,8 +264,9 @@ void run_config_wizard() {
         temp.threshold_pct =
             prompt_for_int("Threshold %:", global_config.threshold_pct, 0, 100);
     } else {
-        temp.schedule_hours =
-            prompt_for_int("Water hours:", global_config.schedule_hours, 0, 24);
+    temp.schedule_mins =
+        prompt_for_int("Water mins:", global_config.schedule_mins, 0, 180);
+
     }
 
     // 4. Prompt for temperature range
@@ -326,7 +279,9 @@ void run_config_wizard() {
     // 5. Final confirmation
 
     if(prompt_confirm("Apply settings?")){
+        
          global_config = temp;   // apply new config
+   
     }
 
     return;
@@ -393,19 +348,4 @@ control_mode_t prompt_for_watering_mode(control_mode_t initialMode) {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
