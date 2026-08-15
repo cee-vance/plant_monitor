@@ -3,7 +3,7 @@
 
 config_msg_t global_config = {
     .mode = MODE_THRESHOLD,   // or MODE_SCHEDULE, doesn't matter yet
-    .threshold_pct = 10,
+    .threshold_pct = 05,
     .schedule_mins = 5,
 
     .temp_min = 20,           // start opening at 20°C

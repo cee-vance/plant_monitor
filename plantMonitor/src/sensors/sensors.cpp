@@ -52,7 +52,7 @@ void read_sensors_task(void *pvParameters)
 
         logging_send_data(pkt);
 
-        vTaskDelay(20);
+        vTaskDelay(GLOBAL_TICK);
     }
 }
 

@@ -1,8 +1,9 @@
 #include "src/logging.h"
 #include "src/globals.h"
+#include "src/actuators.h"
 
 void logging_send_data(const plant_data_t &msg) {
-    Serial.println("received logging data");
+    // Serial.println("received logging data");
     xQueueOverwrite(plant_data_queue, &msg);
 
 }
@@ -68,18 +69,20 @@ void logging_task(void *pvParameters)
 
         if (xQueuePeek(plant_data_queue, &pkt, portMAX_DELAY)) {
 
+
+            logging_print_data(pkt);
             bool hasRelevant = relevance_check(pkt, global_config);
 
             if (hasRelevant) {
                 xTaskNotifyGive(displayNowTaskHandle);
             } else {
                 int dummy;
-                Serial.println("FLUSHED DISPLAY NOW QUEUE");
+                //Serial.println("FLUSHED DISPLAY NOW QUEUE");
                 while (xQueueReceive(displayNowQueue, &dummy, 0)) {}
             }
         }
 
-        vTaskDelay(30);
+        vTaskDelay(GLOBAL_TICK);
     }
 }
 
@@ -182,11 +185,19 @@ bool relevance_check(const plant_data_t &d,
     bool queued = false;
 
     // Temperature out of range
-    if (d.temperature_c > cfg.temp_max || d.temperature_c < cfg.temp_min) {
-        Serial.println("TEMP OUT OF RANGE!!");
+    if (d.temperature_c > cfg.temp_max ){
+        Serial.println("TEMP ABOVE RANGE!!");
         display_topic_t topic = DISP_TOPIC_TEMP;
         xQueueSend(displayNowQueue, &topic, 0);
         queued = true;
+
+        vent_open();
+    } else if( d.temperature_c < cfg.temp_min) {
+        Serial.println("TEMP BELOW RANGE!!");
+        display_topic_t topic = DISP_TOPIC_TEMP;
+        xQueueSend(displayNowQueue, &topic, 0);
+        queued = true;
+        vent_close();
     }
 
     // --- Moisture threshold with hysteresis ---

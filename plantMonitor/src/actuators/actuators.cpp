@@ -211,7 +211,7 @@ void update_vent_position(float current_temp, const config_msg_t &cfg) {
         Serial.println("Vent: CLOSE");
         return;
     }
-
+    
     // In range → do nothing
     Serial.println("Vent: HOLD (in range)");
 }
