@@ -28,6 +28,13 @@
 
 #define GLOBAL_SCHED_ML  .5         // always disense half a mL on schedule
 
+// GLOBAL task periods
+#define DISTURBANCE_PERIOD 15   // approx. 64 Hz 
+#define SENSOR_PERIOD       20  // 50 Hz
+
+#define LOGGING_PERIOD      100 // 10 Hz
+
+
 
 enum ui_mode_t {
     UI_MODE_LOGGING = 0,   // normal operation
@@ -89,6 +96,15 @@ extern QueueHandle_t raw_queue;
 extern TaskHandle_t manualWaterTaskHandle;
 
 extern bool threshold_active;
+
+
+extern QueueHandle_t sound_queue;
+
+typedef enum {
+    SOUND_NOMINAL = 0,
+    SOUND_MEDIUM  = 1,
+    SOUND_HIGH    = 2
+} sound_level_t;
 
 
 #endif

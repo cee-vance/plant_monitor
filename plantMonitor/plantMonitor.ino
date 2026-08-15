@@ -44,6 +44,20 @@ void setup() {
 
     threshold_queue = xQueueCreate(1, sizeof(int));
 
+    sound_queue = xQueueCreate(1, sizeof(sound_level_t));
+
+
+
+    xTaskCreatePinnedToCore(
+            sound_disturbance_task,
+            "vibrationTask",
+            4096,
+            NULL,
+            1,
+            NULL,
+            0
+        );
+        
     // Create logging task
     xTaskCreatePinnedToCore(
         logging_task,          // task function
@@ -108,7 +122,7 @@ void setup() {
         "manualWater",            // name
         2048,                     // stack size
         NULL,                     // parameter
-        2,                        // priority
+        2,                        // priority   
         &manualWaterTaskHandle    // handle out
     );
 
@@ -124,14 +138,16 @@ void setup() {
 
     
 
-xTaskCreate(
-    water_schedule_task,
-    "water_sched",
-    4096,
-    NULL,
-    3,
-    NULL
-);
+    xTaskCreate(
+        water_schedule_task,
+        "water_sched",
+        4096,
+        NULL,
+        3,
+        NULL
+    );
+
+
 
         
 

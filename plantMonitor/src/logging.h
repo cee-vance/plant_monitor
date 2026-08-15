@@ -5,6 +5,9 @@
 #include "src/protocol.h"   // for control_mode_t
 #include "src/globals.h"
 
+
+
+
 // ======================================================
 //  Unified Plant Data Packet (FINAL SENSOR-CENTRIC MODEL)
 // ======================================================
@@ -35,8 +38,7 @@ struct plant_data_t {
     bool  height_ok;
 
     // Sound
-    float noise_level;
-    float disturbance_level;
+    sound_level_t disturbance_level;
     bool  sound_ok;
 
     // Actuator status (fault detection only)
@@ -94,3 +96,5 @@ bool relevance_check(const plant_data_t &d,
 int topic_to_index(display_topic_t t);
 
 void lcd_init() ;
+
+const char* soundLevelToString(sound_level_t lvl);

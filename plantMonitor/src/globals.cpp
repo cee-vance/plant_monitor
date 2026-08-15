@@ -49,4 +49,6 @@ TaskHandle_t manualWaterTaskHandle = nullptr;
 
 bool threshold_active = false;
 
+QueueHandle_t sound_queue = nullptr;
+
 

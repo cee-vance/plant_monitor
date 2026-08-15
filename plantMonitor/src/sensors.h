@@ -7,6 +7,10 @@
 #define SDA 21
 #define SCLK 20
 
+
+
+
+
 // ======================================================
 //  Sensor Task
 // ======================================================
@@ -108,7 +112,19 @@ bool read_light_sensor(float &lux_out);
 // ======================================================
 #define SOUND_PIN 2
 
+#define WINDOW     64        // samples in energy window
+
+// --- STATE ---
+static int buf[WINDOW];
+static int idx = 0;
+static bool filled = false;
+
+static long baseline = -1;   // -1 means “uninitialized”
+static long lastEnergy = 0;
+
+
 bool read_sound_sensor(float &sound_out);
+void sound_disturbance_task(void *pv);
 
 // ======================================================
 //  Moisture

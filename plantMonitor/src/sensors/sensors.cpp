@@ -52,7 +52,7 @@ void read_sensors_task(void *pvParameters)
 
         logging_send_data(pkt);
 
-        vTaskDelay(GLOBAL_TICK);
+        vTaskDelay(pdMS_TO_TICKS(SENSOR_PERIOD));
     }
 }
 
@@ -87,8 +87,16 @@ plant_data_t build_plant_packet(
     pkt.height_ok = raw.height_ok;
 
     // Sound
-    pkt.noise_level = derived.noise_level;
-    pkt.disturbance_level = derived.disturbance_level;
+    // pkt.noise_level = derived.noise_level;
+    
+    sound_level_t lvl;
+    if (xQueuePeek(sound_queue, &lvl, 0) == pdTRUE) {
+        // successfully peeked
+        pkt.disturbance_level = lvl;
+    } else {
+        // queue empty → keep previous value or set default
+        pkt.disturbance_level = SOUND_NOMINAL;
+    }
     pkt.sound_ok = raw.sound_ok;
 
     // Actuator status (placeholder until control loop sets them)
@@ -337,4 +345,58 @@ bool read_moisture_sensor(float &moist_pct) {
     moist_pct = pct * 100.0f;
     return true;
 }
+
+
+// --- TASK ---
+void sound_disturbance_task(void *pv) {
+    Serial.println("[VIB] vibrationTask started");
+
+    while (true) {
+        int raw = analogRead(SOUND_PIN);
+        buf[idx] = raw;
+        idx = (idx + 1) % WINDOW;
+
+        bool windowFinished = (idx == 0);
+        if (windowFinished) filled = true;
+
+     if (filled && windowFinished) {
+            long energy = 0;
+            for (int i = 0; i < WINDOW; i++) {
+                long v = buf[i];
+                energy += v * v;
+            }
+
+            if (baseline < 0) {
+                baseline = energy;
+                lastEnergy = energy;
+            }
+
+            baseline = (baseline * 19 + energy) / 20;
+
+            long delta = energy - lastEnergy;
+            lastEnergy = energy;
+
+            // --- Your thresholds ---
+            sound_level_t level;
+            if (delta < 17000) {
+                level = SOUND_NOMINAL;
+            } else if (delta < 36000) {
+                level = SOUND_MEDIUM;
+            } else {
+                level = SOUND_HIGH;
+            }
+
+            // --- Overwrite queue ---
+            xQueueOverwrite(sound_queue, &level);
+
+          if(level == HIGH) {
+              Serial.printf("[VIB] raw=%d energy=%ld base=%ld delta=%ld level=%d\n",
+                        raw, energy, baseline, delta, level);
+              }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(DISTURBANCE_PERIOD));
+    }
+}
+
 

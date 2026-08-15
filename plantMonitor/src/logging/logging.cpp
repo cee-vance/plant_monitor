@@ -47,10 +47,10 @@ void logging_print_data(const plant_data_t &msg) {
     Serial.print(msg.height_ok);
 
     // Sound
-    Serial.print(" noise=");
-    Serial.print(msg.noise_level);
-    Serial.print(" disturb=");
-    Serial.print(msg.disturbance_level);
+    Serial.print(" disturbance=");
+    Serial.print(soundLevelToString(msg.disturbance_level));
+    
+    
     Serial.print(" sound_ok=");
     Serial.print(msg.sound_ok);
 
@@ -82,7 +82,7 @@ void logging_task(void *pvParameters)
             }
         }
 
-        vTaskDelay(GLOBAL_TICK);
+        vTaskDelay(pdMS_TO_TICKS(LOGGING_PERIOD));
     }
 }
 
@@ -110,7 +110,7 @@ void regular_display_task(void *pv) {
             display_screen(screenIndex, d);
         }
 
-        vTaskDelay(GLOBAL_TICK);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
@@ -168,8 +168,8 @@ void display_screen(int idx, const plant_data_t &d) {
 
         case SCREEN_SOUND:
             lcd.setCursor(0,0);
-            lcd.print("Noise: ");
-            lcd.print(d.noise_level);
+            lcd.print("Disturbance: ");
+            lcd.print(soundLevelToString(d.disturbance_level));
             break;
 
         default:
@@ -199,6 +199,14 @@ bool relevance_check(const plant_data_t &d,
         queued = true;
         vent_close();
     }
+
+    // Sound disturbance
+    if (d.disturbance_level == SOUND_HIGH) {
+        display_topic_t topic = DISP_TOPIC_SOUND;
+        xQueueSend(displayNowQueue, &topic, 0);
+        queued = true;
+    }
+
 
     // --- Moisture threshold with hysteresis ---
     if (cfg.mode == MODE_THRESHOLD) {
@@ -260,7 +268,7 @@ void display_now_task(void *pv) {
             // Serial.println("PRINTING PLANT DATA RECEIVED FROM DISPLAY NOW QUEUE");
             // print_data(d);
             display_screen(idx, d);
-            vTaskDelay(pdMS_TO_TICKS(1500));
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
 
         vTaskResume(regularDisplayTaskHandle);
@@ -289,4 +297,19 @@ void lcd_init() {
     lcd.setCursor(0,0);
     lcd.print("LCD Ready");
 }
+
+
+const char* soundLevelToString(sound_level_t lvl) {
+    switch (lvl) {
+        case SOUND_NOMINAL:
+            return "NOMINAL";
+        case SOUND_MEDIUM:
+            return "MEDIUM";
+        case SOUND_HIGH:
+            return "HIGH";
+        default:
+            return "UNKNOWN";
+    }
+}
+
 
