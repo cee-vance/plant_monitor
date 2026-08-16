@@ -281,8 +281,8 @@ float read_ultrasonic_cm() {
 bool read_light_sensor(float &lux_out) {
     int raw = analogRead(LIGHT_PIN);
 
-    if (raw < 0 || raw > 4095) {
-        return false;
+    if (raw < 800 || raw > 3800) {
+                return false;
     }
 
     lux_out = (float)raw;

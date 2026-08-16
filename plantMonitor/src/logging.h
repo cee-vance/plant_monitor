@@ -51,15 +51,23 @@ struct plant_data_t {
 // ======================================================
 
 typedef enum {
-    DISP_TOPIC_TEMP   = SCREEN_TEMP,    // 0
-    DISP_TOPIC_MOIST  = SCREEN_MOIST,   // 1
-    DISP_TOPIC_HUMID  = SCREEN_HUMID,   // 2
-    DISP_TOPIC_LIGHT  = SCREEN_LIGHT,   // 3
-    DISP_TOPIC_SOUND  = SCREEN_SOUND,   // 4
-    DISP_TOPIC_HEIGHT = SCREEN_HEIGHT,  // 5
-    DISP_TOPIC_PUMP   = SCREEN_PUMP,    // 6
-    DISP_TOPIC_VENT   = SCREEN_VENT     // 7
+    DISP_TOPIC_TEMP   = SCREEN_TEMP,
+    DISP_TOPIC_MOIST  = SCREEN_MOIST,
+    DISP_TOPIC_SOUND  = SCREEN_SOUND,
+    DISP_TOPIC_LIGHT  = SCREEN_LIGHT,
+    DISP_TOPIC_HEIGHT = SCREEN_HEIGHT,
+    DISP_TOPIC_PUMP   = SCREEN_PUMP,
+    DISP_TOPIC_VENT   = SCREEN_VENT,
+
+    // Fault topics map to same screens
+    DISP_TOPIC_FAULT_TEMP  ,
+    DISP_TOPIC_FAULT_HUMID ,
+    DISP_TOPIC_FAULT_LIGHT ,
+    DISP_TOPIC_FAULT_HEIGHT,
+    DISP_TOPIC_FAULT_MOIST ,
+    DISP_TOPIC_FAULT_SOUND 
 } display_topic_t;
+
 
 
 
