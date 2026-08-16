@@ -394,12 +394,20 @@ void display_now_task(void *pv) {
             // Always refresh latest plant data
             xQueuePeek(plant_data_queue, &d, 0);
 
-            // Moisture threshold persistence
+            // --- Moisture threshold persistence ---
             if (idx == SCREEN_MOIST && threshold_active) {
                 display_alert_screen(idx, d);
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 continue;
             }
+
+            // --- Fault persistence ---
+            if (idx == DISP_TOPIC_FAULT_TEMP   && !d.temp_ok)   { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+            if (idx == DISP_TOPIC_FAULT_HUMID  && !d.humid_ok)  { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+            if (idx == DISP_TOPIC_FAULT_LIGHT  && !d.light_ok)  { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+            if (idx == DISP_TOPIC_FAULT_HEIGHT && !d.height_ok) { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+            if (idx == DISP_TOPIC_FAULT_MOIST  && !d.moist_ok)  { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+            if (idx == DISP_TOPIC_FAULT_SOUND  && !d.sound_ok)  { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
 
             // Drain additional queued alerts
             if (xQueueReceive(displayNowQueue, &idx, 0)) {
@@ -408,7 +416,7 @@ void display_now_task(void *pv) {
                 continue;
             }
 
-            // No more alerts + moisture not active → exit
+            // No more alerts AND no persistence → exit
             break;
         }
 
@@ -416,6 +424,7 @@ void display_now_task(void *pv) {
         vTaskResume(regularDisplayTaskHandle);
     }
 }
+
 
 
 int topic_to_index(display_topic_t t) {
