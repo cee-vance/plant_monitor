@@ -76,10 +76,13 @@ void logging_task(void *pvParameters)
             if (hasRelevant) {
                 xTaskNotifyGive(displayNowTaskHandle);
             } else {
-                int dummy;
-                //Serial.println("FLUSHED DISPLAY NOW QUEUE");
-                while (xQueueReceive(displayNowQueue, &dummy, 0)) {}
+                // Do NOT flush if moisture threshold is active
+                if (!threshold_active) {
+                    int dummy;
+                    while (xQueueReceive(displayNowQueue, &dummy, 0)) {}
+                }
             }
+
         }
 
         vTaskDelay(pdMS_TO_TICKS(LOGGING_PERIOD));
@@ -179,6 +182,42 @@ void display_screen(int idx, const plant_data_t &d) {
     }
 }
 
+void display_alert_screen(int idx, const plant_data_t &d) {
+    lcd.clear();
+
+    // Row 0: universal urgent banner
+    lcd.setCursor(0,0);
+    lcd.print("!!! ALERT !!!");
+
+    // Row 1+: reuse your existing screen logic
+    lcd.setCursor(0,1);
+
+    switch (idx) {
+
+        case SCREEN_TEMP:
+            lcd.print("Temp: ");
+            lcd.print(d.temperature_c);
+            lcd.print("C");
+            break;
+
+        case SCREEN_MOIST:
+            lcd.print("Moist: ");
+            lcd.print(d.moisture_pct);
+            lcd.print("%");
+            break;
+
+        case SCREEN_SOUND:
+            lcd.print("Disturb: ");
+            lcd.print(soundLevelToString(d.disturbance_level));
+            break;
+
+        default:
+            lcd.print("Unknown");
+            break;
+    }
+}
+
+
 bool relevance_check(const plant_data_t &d,
                      const config_msg_t &cfg)
 {
@@ -259,7 +298,7 @@ void display_now_task(void *pv) {
         xQueuePeek(plant_data_queue, &d, 0);
 
 
-        display_screen(idx, d);
+        display_alert_screen(idx, d);
         vTaskDelay(pdMS_TO_TICKS(1500));
 
         while (xQueueReceive(displayNowQueue, &idx, 0)) {
@@ -267,7 +306,7 @@ void display_now_task(void *pv) {
 
             // Serial.println("PRINTING PLANT DATA RECEIVED FROM DISPLAY NOW QUEUE");
             // print_data(d);
-            display_screen(idx, d);
+            display_alert_screen(idx, d);
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
 

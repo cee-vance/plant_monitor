@@ -98,3 +98,5 @@ int topic_to_index(display_topic_t t);
 void lcd_init() ;
 
 const char* soundLevelToString(sound_level_t lvl);
+
+void display_alert_screen(int idx, const plant_data_t &d);
