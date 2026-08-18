@@ -1,20 +1,35 @@
+// ======================================================
+//  Includes
+// ======================================================
 #include "src/logging.h"
 #include "src/globals.h"
 #include "src/actuators.h"
 
+// ======================================================
+//  Alert State Flags
+// ======================================================
 bool sound_alert_active = false;
 bool temp_fault_active   = false;
 bool humid_fault_active  = false;
 bool light_fault_active  = false;
 bool height_fault_active = false;
 bool moist_fault_active  = false;
-bool sound_fault_active  = false;   // separate from sound_alert_active
+bool sound_fault_active  = false;
 
-
+// ======================================================
+// Name: logging_send_data
+// Description: Overwrites the plant_data_queue with the
+//              latest plant_data_t packet.
+// ======================================================
 void logging_send_data(const plant_data_t &msg) {
     xQueueOverwrite(plant_data_queue, &msg);
 }
 
+// ======================================================
+// Name: logging_print_data
+// Description: Prints formatted plant data to Serial for
+//              debugging and monitoring.
+// ======================================================
 void logging_print_data(const plant_data_t &msg) {
     Serial.print("ts=");
     Serial.print(msg.timestamp_ms);
@@ -59,12 +74,16 @@ void logging_print_data(const plant_data_t &msg) {
     Serial.println(msg.vent_ok);
 }
 
-void logging_task(void *pvParameters)
-{
+// ======================================================
+// Name: logging_task
+// Description: FreeRTOS task that prints plant data,
+//              evaluates relevance, and triggers alert
+//              display notifications.
+// ======================================================
+void logging_task(void *pvParameters) {
     plant_data_t pkt;
 
     while (true) {
-
         if (xQueuePeek(plant_data_queue, &pkt, portMAX_DELAY)) {
 
             logging_print_data(pkt);
@@ -84,6 +103,11 @@ void logging_task(void *pvParameters)
     }
 }
 
+// ======================================================
+// Name: regular_display_task
+// Description: Cycles through normal display screens,
+//              skipping screens whose sensors are faulty.
+// ======================================================
 void regular_display_task(void *pv) {
     plant_data_t d;
 
@@ -92,8 +116,7 @@ void regular_display_task(void *pv) {
 
     const uint32_t SCREEN_INTERVAL_MS = 2000;
 
-    while(true) {
-
+    while (true) {
         if (xQueuePeek(plant_data_queue, &d, portMAX_DELAY)) {
 
             if (millis() - lastSwitch > SCREEN_INTERVAL_MS) {
@@ -115,11 +138,15 @@ void regular_display_task(void *pv) {
     }
 }
 
+// ======================================================
+// Name: display_screen
+// Description: Renders a normal (non-alert) screen based
+//              on the provided screen index.
+// ======================================================
 void display_screen(int idx, const plant_data_t &d) {
     lcd.clear();
 
     switch (idx) {
-
         case SCREEN_MOIST:
             lcd.setCursor(0,0);
             lcd.print("Moist: ");
@@ -180,6 +207,11 @@ void display_screen(int idx, const plant_data_t &d) {
     }
 }
 
+// ======================================================
+// Name: display_alert_screen
+// Description: Renders an alert screen for faults or
+//              threshold-based warnings.
+// ======================================================
 void display_alert_screen(int idx, const plant_data_t &d) {
     lcd.clear();
 
@@ -191,8 +223,6 @@ void display_alert_screen(int idx, const plant_data_t &d) {
     Serial.printf("alert screen received: %d\n", idx);
 
     switch (idx) {
-
-        // Normal alert screens
         case SCREEN_TEMP:
             lcd.print("Temp: ");
             lcd.print(d.temperature_c);
@@ -210,30 +240,12 @@ void display_alert_screen(int idx, const plant_data_t &d) {
             lcd.print(soundLevelToString(d.disturbance_level));
             break;
 
-        // Fault alert screens
-        case DISP_TOPIC_FAULT_TEMP:
-            lcd.print("TEMP SENSOR FAULT");
-            break;
-
-        case DISP_TOPIC_FAULT_HUMID:
-            lcd.print("HUMID SENSOR FAULT");
-            break;
-
-        case DISP_TOPIC_FAULT_LIGHT:
-            lcd.print("LIGHT SENSOR FAULT");
-            break;
-
-        case DISP_TOPIC_FAULT_HEIGHT:
-            lcd.print("HEIGHT SENSOR FAULT");
-            break;
-
-        case DISP_TOPIC_FAULT_MOIST:
-            lcd.print("MOISTURE SENSOR FAULT");
-            break;
-
-        case DISP_TOPIC_FAULT_SOUND:
-            lcd.print("SOUND SENSOR FAULT");
-            break;
+        case DISP_TOPIC_FAULT_TEMP:   lcd.print("TEMP SENSOR FAULT");   break;
+        case DISP_TOPIC_FAULT_HUMID:  lcd.print("HUMID SENSOR FAULT");  break;
+        case DISP_TOPIC_FAULT_LIGHT:  lcd.print("LIGHT SENSOR FAULT");  break;
+        case DISP_TOPIC_FAULT_HEIGHT: lcd.print("HEIGHT SENSOR FAULT"); break;
+        case DISP_TOPIC_FAULT_MOIST:  lcd.print("MOISTURE SENSOR FAULT"); break;
+        case DISP_TOPIC_FAULT_SOUND:  lcd.print("SOUND SENSOR FAULT"); break;
 
         default:
             lcd.print("Unknown");
@@ -241,24 +253,31 @@ void display_alert_screen(int idx, const plant_data_t &d) {
     }
 }
 
-
+// ======================================================
+// Name: relevance_check
+// Description: Determines whether plant data requires an
+//              alert screen, including faults, thresholds,
+//              and sound disturbances.
+// ======================================================
 bool relevance_check(const plant_data_t &d,
                      const config_msg_t &cfg)
 {
     bool queued = false;
 
-    if (d.temperature_c > cfg.temp_max ){
+    // --- Temperature alerts ---
+    if (d.temperature_c > cfg.temp_max) {
         display_topic_t topic = DISP_TOPIC_TEMP;
         xQueueSend(displayNowQueue, &topic, 0);
         queued = true;
         vent_open();
-    } else if( d.temperature_c < cfg.temp_min) {
+    } else if (d.temperature_c < cfg.temp_min) {
         display_topic_t topic = DISP_TOPIC_TEMP;
         xQueueSend(displayNowQueue, &topic, 0);
         queued = true;
         vent_close();
     }
 
+    // --- Sound alerts ---
     if (d.disturbance_level == SOUND_HIGH) {
         if (!sound_alert_active) {
             display_topic_t topic = DISP_TOPIC_SOUND;
@@ -270,14 +289,12 @@ bool relevance_check(const plant_data_t &d,
         sound_alert_active = false;
     }
 
-
+    // --- Moisture threshold mode ---
     if (cfg.mode == MODE_THRESHOLD) {
-
         const float low  = cfg.threshold_pct - 3.0f;
         const float high = cfg.threshold_pct + 3.0f;
 
         if (!threshold_active && d.moisture_pct < low) {
-
             display_topic_t topic2 = DISP_TOPIC_MOIST;
             xQueueSend(displayNowQueue, &topic2, 0);
 
@@ -293,7 +310,7 @@ bool relevance_check(const plant_data_t &d,
         }
     }
 
-    // --- Sensor Fault Detection (latched) ---
+    // --- Fault detection (latched) ---
     if (!d.temp_ok) {
         if (!temp_fault_active) {
             display_topic_t t = DISP_TOPIC_FAULT_TEMP;
@@ -301,9 +318,7 @@ bool relevance_check(const plant_data_t &d,
             queued = true;
         }
         temp_fault_active = true;
-    } else {
-        temp_fault_active = false;
-    }
+    } else temp_fault_active = false;
 
     if (!d.humid_ok) {
         if (!humid_fault_active) {
@@ -312,9 +327,7 @@ bool relevance_check(const plant_data_t &d,
             queued = true;
         }
         humid_fault_active = true;
-    } else {
-        humid_fault_active = false;
-    }
+    } else humid_fault_active = false;
 
     if (!d.light_ok) {
         if (!light_fault_active) {
@@ -323,9 +336,7 @@ bool relevance_check(const plant_data_t &d,
             queued = true;
         }
         light_fault_active = true;
-    } else {
-        light_fault_active = false;
-    }
+    } else light_fault_active = false;
 
     if (!d.height_ok) {
         if (!height_fault_active) {
@@ -334,9 +345,7 @@ bool relevance_check(const plant_data_t &d,
             queued = true;
         }
         height_fault_active = true;
-    } else {
-        height_fault_active = false;
-    }
+    } else height_fault_active = false;
 
     if (!d.moist_ok) {
         if (!moist_fault_active) {
@@ -345,9 +354,7 @@ bool relevance_check(const plant_data_t &d,
             queued = true;
         }
         moist_fault_active = true;
-    } else {
-        moist_fault_active = false;
-    }
+    } else moist_fault_active = false;
 
     if (!d.sound_ok) {
         if (!sound_fault_active) {
@@ -356,26 +363,24 @@ bool relevance_check(const plant_data_t &d,
             queued = true;
         }
         sound_fault_active = true;
-    } else {
-        sound_fault_active = false;
-    }
-
+    } else sound_fault_active = false;
 
     return queued;
 }
 
+// ======================================================
+// Name: display_now_task
+// Description: Handles alert screens, persistence logic,
+//              and overrides normal display rotation.
+// ======================================================
 void display_now_task(void *pv) {
     int idx;
 
     for (;;) {
-
-        // Wait for logging_task to notify us
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        // Pause regular rotation
         vTaskSuspend(regularDisplayTaskHandle);
 
-        // Get first alert topic
         if (!xQueueReceive(displayNowQueue, &idx, 0)) {
             vTaskResume(regularDisplayTaskHandle);
             continue;
@@ -384,24 +389,18 @@ void display_now_task(void *pv) {
         plant_data_t d;
         xQueuePeek(plant_data_queue, &d, 0);
 
-        // Show first alert (topic directly)
         display_alert_screen(idx, d);
         vTaskDelay(pdMS_TO_TICKS(1500));
 
-        // Persistent + multi-alert loop
         while (true) {
-
-            // Always refresh latest plant data
             xQueuePeek(plant_data_queue, &d, 0);
 
-            // --- Moisture threshold persistence ---
             if (idx == SCREEN_MOIST && threshold_active) {
                 display_alert_screen(idx, d);
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 continue;
             }
 
-            // --- Fault persistence ---
             if (idx == DISP_TOPIC_FAULT_TEMP   && !d.temp_ok)   { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
             if (idx == DISP_TOPIC_FAULT_HUMID  && !d.humid_ok)  { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
             if (idx == DISP_TOPIC_FAULT_LIGHT  && !d.light_ok)  { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
@@ -409,24 +408,24 @@ void display_now_task(void *pv) {
             if (idx == DISP_TOPIC_FAULT_MOIST  && !d.moist_ok)  { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
             if (idx == DISP_TOPIC_FAULT_SOUND  && !d.sound_ok)  { display_alert_screen(idx, d); vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
 
-            // Drain additional queued alerts
             if (xQueueReceive(displayNowQueue, &idx, 0)) {
                 display_alert_screen(idx, d);
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 continue;
             }
 
-            // No more alerts AND no persistence → exit
             break;
         }
 
-        // Resume normal rotation
         vTaskResume(regularDisplayTaskHandle);
     }
 }
 
-
-
+// ======================================================
+// Name: topic_to_index
+// Description: Converts a display_topic_t to a screen
+//              index for the LCD display system.
+// ======================================================
 int topic_to_index(display_topic_t t) {
     switch (t) {
         case DISP_TOPIC_TEMP:   return SCREEN_TEMP;
@@ -440,6 +439,10 @@ int topic_to_index(display_topic_t t) {
     }
 }
 
+// ======================================================
+// Name: lcd_init
+// Description: Initializes the LCD hardware.
+// ======================================================
 void lcd_init() {
     lcd.init();
     lcd.backlight();
@@ -448,6 +451,11 @@ void lcd_init() {
     lcd.print("LCD Ready");
 }
 
+// ======================================================
+// Name: soundLevelToString
+// Description: Converts a sound_level_t enum to a human-
+//              readable string.
+// ======================================================
 const char* soundLevelToString(sound_level_t lvl) {
     switch (lvl) {
         case SOUND_NOMINAL: return "NOMINAL";

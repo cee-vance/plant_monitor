@@ -1,22 +1,32 @@
+// ======================================================
+//  Includes
+// ======================================================
 #include "src/globals.h"
 #include "src/actuators.h"
 #include "src/controls.h"
 #include "src/sensors.h"
 
-
-
+// ======================================================
+// Name: control_loop_task
+// Description: Waits for threshold watering events and
+//              triggers the threshold watering sequence.
+// ======================================================
 void control_loop_task(void *pv) {
     int evt;
 
     while (true) {
         if (xQueueReceive(threshold_queue, &evt, portMAX_DELAY)) {
-
             Serial.println("RECEIVED THRESHOLD EVENT");
             run_threshold_watering_sequence();
         }
     }
 }
 
+// ======================================================
+// Name: run_threshold_watering_sequence
+// Description: Performs hysteresis-based watering until
+//              moisture rises above the configured band.
+// ======================================================
 void run_threshold_watering_sequence() {
     const int settle_ms = 400;   // moisture sensors need ~300–500ms to stabilize
 
