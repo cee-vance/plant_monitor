@@ -34,7 +34,7 @@
 
 # 
 
-# !\[Plant Monitoring and Control System Architecture](./architecture\_diagram.jpeg)
+# !\[Plant Monitoring and Control System Architecture](./cse474_final_project_system_diagram.jpg)
 
 # 
 
