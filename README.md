@@ -55,26 +55,41 @@ Each subsystem runs as an independent FreeRTOS task, coordinated through shared 
 
 ---
 
-## 🧪 Verification & Validation
+## Hardware Schematic 
+                         ┌──────────────────────────┐
+                         │   ESP32‑S3 DevKitC‑1     │
+                         │                          │
+                         │ 3V3 ───────────────┐     │
+                         │ 5V  ───────────────┐     │
+                         │ GND ───────────────┴──┐  │
+                         │                        │  │
+                         │ SDA (21)───────────────┼──┼── AM2320 (3.3V)
+                         │ SCL (20)───────────────┼──┼── LCD1602 I²C (5V)
+                         │                        │  │
+                         │ TRIG (7)───────────────┼──┼── HC‑SR04 (5V)
+                         │ ECHO (15)──────────────┼──┘
+                         │                        │
+                         │ LIGHT (1)──────────────┼─── LDR divider (3.3V)
+                         │ SOUND (2)──────────────┼─── Sound sensor (5V)
+                         │ MOIST (19)─────────────┼─── Moisture sensor (3.3V)
+                         │                        │
+                         │ SERVO (11)─────────────┼─── Servo (5V)
+                         │                        │
+                         │ IN1 (16)───────────────┼─── ULN2003 Stepper Driver (5V)
+                         │ IN2 (17)───────────────┼───
+                         │ IN3 (18)───────────────┼───
+                         │ IN4 (8)────────────────┼───
+                         │                        │
+                         │ BTN_UP (6)─────────────┼─── Button → GND
+                         │ BTN_DOWN (4)───────────┼─── Button → GND
+                         │ BTN_ENTER (5)──────────┼─── Button → GND
+                         └──────────────────────────┘
 
-Each subsystem was tested for:
-- **Verification:** Successful build and initialization  
-- **Validation:** Correct runtime behavior under normal, boundary, and fault conditions  
-- **Performance:** Task deadlines met under load  
+Breadboard rails:
+- Left red rail  = 3.3V
+- Right red rail = 5V
+- Blue rails     = GND (tied together)
 
-All tests passed during the in-person demo, confirming stable operation and correct fault handling.
-
----
-
-## 🛠️ What Was Fixed
-
-| Issue | Cause | Fix | Evidence |
-|-------|-------|-----|----------|
-| Multiple definition errors | Duplicate includes in `.ino` | Removed redundant includes and cleaned header guards | Build passed with 0 warnings |
-| Truncated source files | Copy/paste corruption | Reconstructed full files (`logging.cpp`, `sensors.cpp`, `actuators.cpp`) | All modules compiled and ran correctly |
-| Control loop oscillation | Blocking delay in task | Replaced with non-blocking timing and retuned hysteresis | Stable watering behavior |
-| UI debounce issues | Missing debounce logic | Added ISR timing and clamping | Buttons responded correctly |
-| Alert repetition | Fault flags not latched | Added persistent fault flags | Alerts persisted until fault cleared |
 
 ---
 
